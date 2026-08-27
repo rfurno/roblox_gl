@@ -1,7 +1,7 @@
 # Gachamon Legends — Backlog
 
-Last updated: 2026-08-26  
-Items below were found while connecting Studio MCP, mapping the tree, fixing Depart / `KEYS`, and simplifying teleport. This is **not** a full code review (that pass is next).
+Last updated: 2026-08-27 (DUNGEON1 entrance disabled)  
+Items below were found while connecting Studio MCP, mapping the tree, fixing Depart / `KEYS`, and simplifying teleport. Studio DevLog (`ServerScriptService.Draft.DevLog`) is the in-place version comment.
 
 Priority: **P0** play-breaking or data-wrong · **P1** wrong UX / easy to regress · **P2** dead code / naming / cleanup.
 
@@ -20,54 +20,27 @@ Status **Fixed (dev place)** means changed in the open Studio session this week,
 | Maze loading on HOME → dungeon | `TeleportModule` passes site **name** so `StarterGui.LoadingScreen` enables |
 | Teleport centralized | `TeleportModule` owns move + loading + `SetLocation`; door script only routes |
 | Door `Touched` debounce | Always clears after 0.5s (early `return` used to leave the door stuck) |
-
----
-
-## P0 — correctness
-
-### Sell-all via `Sale` remote is broken
-
-`PlayerInventoryManager.onSaleFired` does:
-
-```lua
-local coins = 0
-coins.Value = coins.Value + total
-```
-
-That errors if anything fires `Sale`. The working path is `SellAllProximityPrompt` → `AddCoins`. Dead remote is a trap.
-
-### `SellAll` ignores stack count
-
-Pricing is `GetItemBasePrice(itemId)` **once per id**, not `price * count`. A bag of 10 items of one type pays as one.
-
-### Redeem codes vs template
-
-`ServerConfiguration.REDEEM_CODES_ENABLED = true` and `PlayerDataManager` reads `profile.Data.RedeemCodes`, but `Template` has **no** `RedeemCodes` field. First redeem will nil-index unless ProfileStore reconcile magically adds it (it will not without a template key).
-
-### `PlayerDataInit` re-inits on every `CharacterAdded`
-
-After an **8 second** wait it calls `Initialize` again (reload inventory/gear/catalog, fire loaded remotes). Respawns can duplicate UI work, double-init FTUE side effects, and fight in-flight teleports.
+| `SellAll` pays `price * count`; `Sale` remote deleted | DevLog 2026-08-27 |
+| `CharacterAdded` no longer re-Initialize / restack FTUE | Handshake via `GetPlayerData`; coin HUD pulls on spawn. DevLog 2026-08-27 |
+| `DeductCoins` refuses if broke; shop lookups nil-safe | `GetToolInfo` added. DevLog 2026-08-27 |
+| One `LoadingScreen` for HOME ↔ site; HOME→entry unstick | `LookVector * 3 + (0, 3, 0)`. DevLog 2026-08-27 |
+| `Template.RedeemCodes = {}`; redeem APIs init if missing | DevLog 2026-08-27 |
+| HUD LocalScripts → `StarterPlayerScripts`; GUIs `ResetOnSpawn = false` | Depart, bag, coins, gear, store, blacksmith, codex, settings, notifications, sound, music. DevLog 2026-08-27 |
+| Collect `TryCollect`: node + range + tool; leftover dungeons not stocked | DevLog 2026-08-27 |
 
 ---
 
 ## P1 — teleport / loading / Depart
 
-### Two loading GUIs
-
-`MazeLoadingScreenController`:
-
-- `"show", name` → `StarterGui.LoadingScreen`
-- `"show"` with no name → generated `MazeLoadingGui`
-
-HOME → site uses the designed LoadingScreen. Site → HOME uses the other overlay. Easy to “fix” one path and break the other (already happened once).
-
-### Entry pivot vs door trigger
-
-`TeleportPlayerToDestination` pivots to the **entry marker CFrame**. Room-to-room adds `LookVector * 3 + (0, 3, 0)` so the player does not stand on the trigger. Landing on `IsEntry` would send the player **straight home**. If entry still “works,” it is because of trigger size/orientation, not because the code avoids it.
-
 ### `IsEntry` and `IsExit` both mean “go home”
 
-Walking into the dungeon **entry** from inside is an exit. That may be intended, but it is not documented on the markers. Combined with the pivot issue above, first-room collisions are fragile.
+Walking into the dungeon **entry** from inside is an exit. That may be intended, but it is not documented on the markers. HOME→entry now unsticks like room-to-room; first-room collisions are less fragile but the dual meaning remains.
+
+### DUNGEON1 (Buzzing Plains) needs a site pass
+
+Hub walk-in is `Workspace.Destinations.DUNGEON1.DungeonEntryDoorway` (not the Destinations debug menu). That trigger had `DungeonId = DUNGEON11` (Coconana); it was corrected to `DUNGEON1` on 2026-08-27. **Entrance disabled** by removing the `TeleportTrigger` from the marker until the maze itself is fixed. Still in `DestinationConfig.KEYS`, so Studio Destinations can still send a player there.
+
+Re-parent a `TeleportTrigger` (tagged) only after rooms, `DungeonId`s, and first-room `IsEntry` (`Room_4_2` south) are verified for Buzzing Plains.
 
 ### Depart Destinations button is Studio-only
 
@@ -75,7 +48,7 @@ Walking into the dungeon **entry** from inside is an exit. That may be intended,
 destinationsButton.Visible = isStudio and not uiCoordinator.OnSite
 ```
 
-Testers/live cannot open the site picker from that control. Hub survey-trip models look like entrances but are not confirmed as `TeleportTrigger`s. Need a shipped way to depart.
+Intentional test skip. Production enter is each site’s `DungeonEntryDoorway` `TeleportTrigger`.
 
 ### Site numbering is inconsistent
 
@@ -108,11 +81,11 @@ Spam in the server log for every new player until first collect. Same polling st
 
 ### Client harvest can be spoofed
 
-`PlayerInventoryAdd` is a **client-fired** RemoteEvent. Server checks “can harvest this item id with equipped tool” but not that the player is near a live node or that the node still has that item. A cheater can add any harvestable they have a tool for.
+`PlayerInventoryAdd` remote is gone. Collect goes through `MaterialReplenishModule.TryCollect` (tagged part, live `MaterialItemId`, server range, tool). `AddItem` is still a tool-only grant — do not call it from a new remote. Leftover `DUNGEON3/7/8` nodes are no longer replenished (`KEYS` only).
 
 ### Character-bound UI
 
-Bag, gear, store, blacksmith, coins, **Depart**, codex all live in `StarterCharacterScripts`. They tear down and rebuild on every death/respawn. Depart in particular can lose picker state mid-dungeon if the character is replaced.
+Moved to `StarterPlayerScripts` (2026-08-27). Related ScreenGuis `ResetOnSpawn = false`. `ScreenOverlayNEW` still has no owner script.
 
 ### `ScreenOverlayNEW`
 
@@ -145,7 +118,7 @@ Level/XP on `PlayerDataManager`, `PlayerLevelManager`, `BadgeHandler`, `Analytic
 
 - `PROFILE_STORE_DEBUB`
 - `REDEEM_CODES_MAX_LENGHT`
-- `MazeLoadingScreenController` still builds a second GUI that is only used on unnamed `"show"`
+- `MazeLoadingScreenController` now only drives `LoadingScreen` (MazeLoadingGui leftover is destroyed)
 
 ---
 
@@ -155,27 +128,21 @@ Level/XP on `PlayerDataManager`, `PlayerLevelManager`, `BadgeHandler`, `Analytic
 |---|---|
 | Runtime-generated mazes | Pre-baked rooms; generators off |
 | Full tool ladder (5 tiers in config) | Only Willow tier 1 items + 3 tools in ServerStorage |
-| Redeem codes | Flag on, no template field, no UI found in this pass |
+| Redeem codes | `Template` has `RedeemCodes = {}`; still no UI |
 | Player level | Commented out |
-| Non-Studio depart | Destinations button hidden outside Studio |
-| One loading treatment | Two GUIs, name-discriminated |
-| Sell uses inventory counts | Pays once per item id |
+| Non-Studio depart | Hub `DungeonEntryDoorway` volumes (Destinations menu is Studio-only) |
+| Buzzing Plains (`DUNGEON1`) playable | `TeleportTrigger` removed from hub doorway until the site is fixed |
+| One loading treatment | One `LoadingScreen`; name is the trip title |
+| Sell uses inventory counts | `price * count` |
 | Clean enable list for sites | `KEYS` is now clean; world still contains 3 extra dungeons |
 
 ---
 
 ## Suggested next engineering (after code review)
 
-1. Unify maze loading to **one** GUI; pass a name (or a dedicated `reason`) for both enter and return.
-2. Offset HOME → entry pivot the same way as room-to-room, or disable the entry trigger until the player steps off.
+1. Fix **DUNGEON1 / Buzzing Plains** and restore a tagged `TeleportTrigger` on `DungeonEntryDoorway` (site currently off).
+2. Align site id / folder / “Level N” copy, or document the mapping in UI.
 3. Delete or archive Disabled materializers, Draft, Old Map, Avo’s Workspace, unused destination folders, test GUIs.
-4. Fix `SellAll` to `price * count`; remove or repair `Sale` remote.
-5. Add `RedeemCodes = {}` to `Template` or turn the flag off.
-6. Move Depart (and other HUDs) to `StarterPlayerScripts` so they survive respawn.
-7. Stop `CharacterAdded` + 8s `Initialize` in `PlayerDataInit`.
-8. Align site id / folder / “Level N” copy, or document the mapping in UI.
-9. Ship a non-Studio depart entry (hub prompt on survey-trip models, or always-on Destinations button).
-10. Validate collect against a real tagged part near the player.
 
 ---
 
