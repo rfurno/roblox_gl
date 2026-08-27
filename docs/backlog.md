@@ -181,4 +181,4 @@ Level/XP on `PlayerDataManager`, `PlayerLevelManager`, `BadgeHandler`, `Analytic
 
 ## Full code review
 
-Not started. When requested, review should treat Studio DataModel scripts as the codebase and use this backlog as the known-issue list rather than rediscovering the items above.
+Completed 2026-08-26. See [code-review.md](code-review.md) for P0/P1 findings and a suggested refactor order. This backlog remains the shorter “what we hit while wiring MCP / Depart / teleport” list.

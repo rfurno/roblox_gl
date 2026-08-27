@@ -8,6 +8,5 @@ Development place: `136894937108297` (Gachamon Legends — Development).
 |---|---|
 | [docs/product.md](docs/product.md) | What the game is, loop, sites, data, UI |
 | [docs/architecture.md](docs/architecture.md) | Services, remotes, teleport, collect, FTUE |
-| [docs/backlog.md](docs/backlog.md) | Known gaps and issues (including work done in Studio this week) |
-
-A full code review of the Studio DataModel is intentionally **not** in these files; run that as a separate pass against the backlog.
+| [docs/backlog.md](docs/backlog.md) | Known gaps from earlier exploration |
+| [docs/code-review.md](docs/code-review.md) | Full Studio code review: P0/P1 issues and refactor order |
