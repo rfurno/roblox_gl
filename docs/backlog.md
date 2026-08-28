@@ -1,6 +1,6 @@
 # Gachamon Legends — Backlog
 
-Last updated: 2026-08-28 (Buzzing Plains → DUNGEON14)  
+Last updated: 2026-08-28 (Buzzing Plains → DUNGEON5x5)  
 Items below were found while connecting Studio MCP, mapping the tree, fixing Depart / `KEYS`, and simplifying teleport. Studio DevLog (`ServerScriptService.Draft.DevLog`) is the in-place version comment.
 
 Priority: **P0** play-breaking or data-wrong · **P1** wrong UX / easy to regress · **P2** dead code / naming / cleanup.
@@ -13,9 +13,9 @@ Status **Fixed (dev place)** means changed in the open Studio session this week,
 
 | Item | Notes |
 |---|---|
-| `DestinationConfig.KEYS` cleaned | Only `HOME`, `DUNGEON10`, `DUNGEON11`, `DUNGEON14` |
+| `DestinationConfig.KEYS` cleaned | Only `HOME`, `DUNGEON10`, `DUNGEON11`, `DUNGEON5x5` |
 | Depart list follows `KEYS` and sorts 10 → 11 → 14 | Removed stale commented Coconana-as-DUNGEON1 block |
-| Buzzing Plains is `DUNGEON14` | `KEYS` + dest block; hub door `DungeonId` `DUNGEON14`, `ToRoom` `4_2` `S`; landing `Room_4_2` south `IsEntry`; tagged `TeleportTrigger`. Profile `Location` `DUNGEON1` → `DUNGEON14`. Hub walk-in playtested 2026-08-28. |
+| Buzzing Plains is `DUNGEON5x5` | Replaced `DUNGEON14`. Hub trigger snapped to old DUNGEON14 gate CFrame; `ToRoom` `5_3` `S`; landing `Room_5_3` south `IsEntry`. Profile `Location` `DUNGEON1`/`DUNGEON14` → `DUNGEON5x5`. Hub walk-in playtested 2026-08-28. |
 | Depart no longer sets `OnSite` when opening the picker | `OnSite` comes from `EnteredRoom` |
 | Maze loading not on room-to-room | `SiteTeleportController` no longer always `"show"` |
 | Maze loading on HOME → dungeon | `TeleportModule` passes site **name** so `StarterGui.LoadingScreen` enables |
@@ -52,7 +52,7 @@ Intentional test skip. Production enter is each site’s `DungeonEntryDoorway` `
 | Key | Folder | UI description | Display name |
 |---|---|---|---|
 | `DUNGEON11` | 11 | “Level 1” | Coconana Oasis |
-| `DUNGEON14` | 14 | “Level 3” | Buzzing Plains |
+| `DUNGEON5x5` | 5x5 | “Level 3” | Buzzing Plains |
 | `DUNGEON10` | 10 | “Level 10” | Blackthorn Mountain |
 
 Product says “sites 10, 11, and 14.” Players see “Level 1 / 3 / 10.” Easy to enable the wrong folder.
@@ -128,7 +128,7 @@ Level/XP on `PlayerDataManager`, `PlayerLevelManager`, `BadgeHandler`, `Analytic
 | Redeem codes | `Template` has `RedeemCodes = {}`; still no UI |
 | Player level | Commented out |
 | Non-Studio depart | Hub `DungeonEntryDoorway` volumes (Destinations menu is Studio-only) |
-| Buzzing Plains (`DUNGEON14`) playable | Hub walk-in playtested; lands `Room_4_2` south |
+| Buzzing Plains (`DUNGEON5x5`) playable | Hub walk-in playtested; lands `Room_5_3` south |
 | One loading treatment | One `LoadingScreen`; name is the trip title |
 | Sell uses inventory counts | `price * count` |
 | Clean enable list for sites | `KEYS` is now clean; world still contains 3 extra dungeons |

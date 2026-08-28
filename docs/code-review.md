@@ -37,7 +37,7 @@ Highest leftover risks are **leftover dungeon doors** (`DUNGEON8`) that still te
 | P1 character HUDs | HUD LocalScripts in `StarterPlayerScripts`. HUD ScreenGuis `ResetOnSpawn = false`. |
 | P0 redeem vs template | `Template.RedeemCodes = {}`; Get/Add init if missing. Still no UI. |
 | P1 replenish leftover dungeons | Stock only `DestinationConfig.KEYS` folders. |
-| Hub `DUNGEON1` doorway `DungeonId` | Folder removed. Buzzing Plains is `DUNGEON14`; hub `DungeonId` `DUNGEON14`, `ToRoom` `4_2` `S`. |
+| Hub `DUNGEON1` doorway `DungeonId` | Folder removed. Buzzing Plains is `DUNGEON5x5`; hub `DungeonId` `DUNGEON5x5`, `ToRoom` `5_3` `S`. |
 | `WOOD_1` expired 2025-11-30 | Dates set to start `2025-01-01` / end `2027-11-30`. |
 
 ---
@@ -58,7 +58,7 @@ None for Coconana / Buzzing Plains / Blackthorn testers.
 |---|---|---|
 | `IsEntry` and `IsExit` both home | `SiteTeleportController` | In-maze entry/exit markers send you HOME. Hub enter is a **non-**`IsEntry` doorway with `ToRoom` / `ToDoorDirection`. Document on markers. |
 | Destinations button Studio-only | `DepartGuiController` | Intentional test skip. Production enter is hub `DungeonEntryDoorway`. |
-| Site id vs “Level N” | `DestinationConfig` | DUNGEON11 = “Level 1”, DUNGEON14 = “Level 3”, DUNGEON10 = “Level 10”. |
+| Site id vs “Level N” | `DestinationConfig` | DUNGEON11 = “Level 1”, DUNGEON5x5 = “Level 3”, DUNGEON10 = “Level 10”. |
 | Leftover doors still move you | `DUNGEON8` tagged triggers | `SetLocation` ignores unknown keys. Character teleports; next join thinks HOME. Replenish no longer stocks that folder. |
 
 ### Economy / catalog / tools
@@ -99,7 +99,7 @@ None for Coconana / Buzzing Plains / Blackthorn testers.
 
 - ProfileStore session lock + reconcile + GDPR `AddUserId` + `RedeemCodes` on template
 - Session: `CharacterAdded` is character-only; FTUE once per join; client waits on `loaded`
-- `DestinationConfig.KEYS` enable list (`HOME`, `DUNGEON10`, `DUNGEON11`, `DUNGEON14`) + Depart sort
+- `DestinationConfig.KEYS` enable list (`HOME`, `DUNGEON10`, `DUNGEON11`, `DUNGEON5x5`) + Depart sort
 - `TeleportModule` owns PivotTo + one loading GUI + `SetLocation`; unstick on HOME→entry
 - Hub enter: untagged/`ToRoom` doorway (not Destinations menu)
 - `TryCollect` + KEYS-only replenish

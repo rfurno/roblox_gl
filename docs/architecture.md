@@ -52,7 +52,7 @@ Studio vs live is selected in `ServerConfiguration` by `game.PlaceId`.
 
 `PlayerDataManager.Profiles[player]` holds the live ProfileStore profile.
 
-Important: `SetLocation` only accepts keys in `DestinationConfig.KEYS`. Depart listing only includes `DESTINATIONS` entries whose key is also in `KEYS`. That pair is the site enable list. On load, profile `Location` `DUNGEON1` is rewritten to `DUNGEON14` (Buzzing Plains folder rename).
+Important: `SetLocation` only accepts keys in `DestinationConfig.KEYS`. Depart listing only includes `DESTINATIONS` entries whose key is also in `KEYS`. That pair is the site enable list. On load, profile `Location` `DUNGEON1` or `DUNGEON14` is rewritten to `DUNGEON5x5` (Buzzing Plains folder rename).
 
 On leave: inventory, catalog (known/recent), and gear are written back, then the session ends. Duplicate session lock kicks the player.
 
@@ -106,7 +106,7 @@ HOME → site from **Studio Depart** uses `TeleportPlayerToDestination` (unstick
 
 Door debounce: `Touched` attribute, cleared after 0.5s via `task.delay`.
 
-**Buzzing Plains (`DUNGEON14`):** in `KEYS`. Hub `DungeonEntryDoorway` marker is `DungeonId` `DUNGEON14`, `ToRoom` `4_2`, `ToDoorDirection` `S`. Landing is `Room_4_2` south (`IsEntry`). Hub `TeleportTrigger` is tagged. Hub walk-in playtested 2026-08-28.
+**Buzzing Plains (`DUNGEON5x5`):** in `KEYS`. Hub `DungeonEntryDoorway` marker is `DungeonId` `DUNGEON5x5`, `ToRoom` `5_3`, `ToDoorDirection` `S`. Landing is `Room_5_3` south (`IsEntry`). Hub `TeleportTrigger` is tagged and aligned to the previous DUNGEON14 gate on `BuzzingPlainsEntrance`. Hub walk-in playtested 2026-08-28.
 
 ### FTUE
 

@@ -80,16 +80,16 @@ Config enable list is `DestinationConfig.KEYS`. Journeys shown in Depart:
 | Key | Name | UI label | Difficulty | Folder |
 |---|---|---|---|---|
 | `DUNGEON11` | Coconana Oasis | Level 1 | Easy | `Workspace.Destinations.DUNGEON11` |
-| `DUNGEON14` | Buzzing Plains | Level 3 | Easy | `Workspace.Destinations.DUNGEON14` |
+| `DUNGEON5x5` | Buzzing Plains | Level 3 | Easy | `Workspace.Destinations.DUNGEON5x5` |
 | `DUNGEON10` | Blackthorn Mountain | Level 10 | Moderate | `Workspace.Destinations.DUNGEON10` |
 
 `HOME` is the hub, not a maze.
 
-Folder id, marketing name, and “Level N” label do **not** line up (site 11 is “Level 1”; site 14 is “Level 3”). See [backlog](backlog.md).
+Folder id, marketing name, and “Level N” label do **not** line up (site 11 is “Level 1”; site `DUNGEON5x5` is “Level 3”). See [backlog](backlog.md).
 
 Baked but **not** enabled: `DUNGEON8`. Live dungeon generation (`DungeonMaterializer*`) is disabled; mazes are pre-placed rooms.
 
-The Destinations button in Depart is **Studio-only** (test skip). Testers/live enter a site by walking the hub `DungeonEntryDoorway` volume. Survey-trip models are art around those volumes. Coconana, Buzzing Plains, and Blackthorn walk-ins are on. Buzzing Plains hub door lands on `Room_4_2` south (`IsEntry`).
+The Destinations button in Depart is **Studio-only** (test skip). Testers/live enter a site by walking the hub `DungeonEntryDoorway` volume. Survey-trip models are art around those volumes. Coconana, Buzzing Plains, and Blackthorn walk-ins are on. Buzzing Plains hub door lands on `Room_5_3` south (`IsEntry`).
 
 ---
 
