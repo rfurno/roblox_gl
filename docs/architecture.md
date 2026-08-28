@@ -1,6 +1,6 @@
 # Gachamon Legends — Architecture
 
-Last updated: 2026-08-27  
+Last updated: 2026-08-28  
 Source of truth: Roblox Studio place **Gachamon Legends (Development)**. This git repo holds documentation only; there is no Rojo/Knit tree.
 
 ---
@@ -52,7 +52,7 @@ Studio vs live is selected in `ServerConfiguration` by `game.PlaceId`.
 
 `PlayerDataManager.Profiles[player]` holds the live ProfileStore profile.
 
-Important: `SetLocation` only accepts keys in `DestinationConfig.KEYS`. Depart listing only includes `DESTINATIONS` entries whose key is also in `KEYS`. That pair is the site enable list.
+Important: `SetLocation` only accepts keys in `DestinationConfig.KEYS`. Depart listing only includes `DESTINATIONS` entries whose key is also in `KEYS`. That pair is the site enable list. On load, profile `Location` `DUNGEON1` is rewritten to `DUNGEON14` (Buzzing Plains folder rename).
 
 On leave: inventory, catalog (known/recent), and gear are written back, then the session ends. Duplicate session lock kicks the player.
 
@@ -64,7 +64,7 @@ On leave: inventory, catalog (known/recent), and gear are written back, then the
 
 ### Collect (`MaterialReplenishModule`)
 
-Tagged parts in **enabled** destination folders (`KEYS`, not DUNGEON3/7/8) get a weighted random item, a proximity prompt, and `MaterialItemId`. Hub FTUE `Forage1` is set up separately.
+Tagged parts in **enabled** destination folders (`KEYS`, not leftover `DUNGEON8`) get a weighted random item, a proximity prompt, and `MaterialItemId`. Hub FTUE `Forage1` is set up separately.
 
 Grant path is **`TryCollect(player, part)`**: part tagged, live `MaterialItemId`, server range (closest point vs `HumanoidRootPart`), equipped tool (or bare hands). Then bag, clear that node, wear tool, catalog. Neutral parts restock every 120 seconds.
 
@@ -106,7 +106,7 @@ HOME → site from **Studio Depart** uses `TeleportPlayerToDestination` (unstick
 
 Door debounce: `Touched` attribute, cleared after 0.5s via `task.delay`.
 
-**Buzzing Plains (`DUNGEON1`):** still in `KEYS`. Hub doorway `DungeonId` is `DUNGEON1`. The `TeleportTrigger` **part** may still exist; it has **no** `TeleportTrigger` tag, so walk-in is off until a site pass.
+**Buzzing Plains (`DUNGEON14`):** in `KEYS`. Hub `DungeonEntryDoorway` marker is `DungeonId` `DUNGEON14`, `ToRoom` `4_2`, `ToDoorDirection` `S`. Landing is `Room_4_2` south (`IsEntry`). Hub `TeleportTrigger` is tagged. Hub walk-in playtested 2026-08-28.
 
 ### FTUE
 
