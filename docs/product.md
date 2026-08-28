@@ -1,6 +1,6 @@
 # Gachamon Legends — Product
 
-Last updated: 2026-08-26  
+Last updated: 2026-08-27  
 Place under review: **Gachamon Legends (Development)** (`136894937108297`)
 
 This document describes what the game is, who it is for, and what a session looks like. Implementation lives in Roblox Studio, not in this git repo.
@@ -35,7 +35,7 @@ Walk speed is 20 in published servers and 28 in Studio.
 2. **Collect** tagged nodes (forage / mining / excavating) using the required tool or bare hands.
 3. **Sell** the bag to Benji (`Sell All Collected Samples`) for coins.
 4. **Gear** — buy / equip / repair Willow tools at the traveling blacksmith.
-5. **Depart** to a site. The maze loading screen shows on HOME → site and site → HOME. Room-to-room uses a short camera fade only.
+5. **Depart** to a site by walking a hub `DungeonEntryDoorway` (Studio also has a Destinations debug picker). One `LoadingScreen` on HOME ↔ site. Room-to-room uses a short camera fade only.
 6. **Explore** rooms, collect, avoid hazards, leave via entry/exit door or Go Home.
 7. **Codex** records known and recent items.
 
@@ -55,7 +55,7 @@ Three harvest types, driven by `ItemConfig` + CollectionService tags:
 | Mining | Pickaxe | Ores (e.g. Copperpine) |
 | Excavating | Shovel | Chests, fossils |
 
-Rarity weights: Common 60%, Rare 30%, Epic 9.9%, Legendary 0.1%. Nodes restock on a 120s interval. Collect time and required tool come from item config.
+Rarity weights: Common 60%, Rare 30%, Epic 9.9%, Legendary 0.1%. Nodes restock on a 120s interval in **enabled** site folders only. Collect is server `TryCollect` (node + range + tool). Collect time and required tool come from item config.
 
 ---
 
@@ -89,7 +89,7 @@ Folder id, marketing name, and “Level N” label do **not** line up (site 11 i
 
 Baked but **not** enabled: `DUNGEON3`, `DUNGEON7`, `DUNGEON8`. Live dungeon generation (`DungeonMaterializer*`) is disabled; mazes are pre-placed rooms.
 
-The Destinations button in Depart is currently **Studio-only**. Testers/live players need another entry (hub survey-trip models exist as art).
+The Destinations button in Depart is **Studio-only** (test skip). Testers/live enter a site by walking the hub `DungeonEntryDoorway` volume. Survey-trip models are art around those volumes. Coconana and Blackthorn walk-ins are on; Buzzing Plains is parked.
 
 ---
 
@@ -102,6 +102,7 @@ ProfileStore session per user. Template:
 - `Inventory` (item id → count)
 - `KnownItems` / `RecentItems` (codex)
 - `Announcements`
+- `RedeemCodes` (empty table; flag on, no UI)
 - `Gear`
 - `Location` (`HOME` or a dungeon key)
 - `LastSession`
@@ -121,7 +122,7 @@ ProfileStore session per user. Template:
 | `Depart` | Site picker + Go Home |
 | `CoinIndicator` | Coin HUD |
 | `AnnouncementsGui` | What’s New |
-| `LoadingScreen` | Maze load overlay (HOME ↔ site, when a site name is passed) |
+| `LoadingScreen` | Maze load overlay (HOME ↔ site; trip name on the GUI) |
 | `ScreenOverlayNEW` | In-dungeon HUD (health, compass, alerts, quick slots) — present, not fully wired in this review |
 
 Leftover test GUIs: `Testing`, `BagGUITEST`.
@@ -147,6 +148,6 @@ Leftover test GUIs: `Testing`, `BagGUITEST`.
 - Procedural dungeon generation at runtime (scripts exist, all Disabled)
 - Player levels and XP
 - Badge awards (referenced, commented)
-- Redeem codes (config flag + manager APIs; **not** in the data template)
+- Redeem codes (flag + APIs + template field; **no UI**)
 - Additional tool tiers beyond Willow
 - Enabled sites other than 1, 10, 11

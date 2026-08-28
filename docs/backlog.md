@@ -38,9 +38,9 @@ Walking into the dungeon **entry** from inside is an exit. That may be intended,
 
 ### DUNGEON1 (Buzzing Plains) needs a site pass
 
-Hub walk-in is `Workspace.Destinations.DUNGEON1.DungeonEntryDoorway` (not the Destinations debug menu). That trigger had `DungeonId = DUNGEON11` (Coconana); it was corrected to `DUNGEON1` on 2026-08-27. **Entrance disabled** by removing the `TeleportTrigger` from the marker until the maze itself is fixed. Still in `DestinationConfig.KEYS`, so Studio Destinations can still send a player there.
+Hub walk-in is `Workspace.Destinations.DUNGEON1.DungeonEntryDoorway` (not the Destinations debug menu). `DungeonId` was `DUNGEON11` (Coconana); corrected to `DUNGEON1` on 2026-08-27. Walk-in is **off**: a part named `TeleportTrigger` may still exist but has **no** `TeleportTrigger` CollectionService tag, so `SiteTeleportController` does not bind it. Still in `DestinationConfig.KEYS`, so Studio Destinations can still send a player there.
 
-Re-parent a `TeleportTrigger` (tagged) only after rooms, `DungeonId`s, and first-room `IsEntry` (`Room_4_2` south) are verified for Buzzing Plains.
+Restore the **tag** (and part if removed) only after rooms, `DungeonId`s, and first-room `IsEntry` (`Room_4_2` south) are verified for Buzzing Plains.
 
 ### Depart Destinations button is Studio-only
 
@@ -79,7 +79,7 @@ end
 
 Spam in the server log for every new player until first collect. Same polling style on Journey (`wait` until `Location ~= HOME`).
 
-### Client harvest can be spoofed
+### Collect grant path
 
 `PlayerInventoryAdd` remote is gone. Collect goes through `MaterialReplenishModule.TryCollect` (tagged part, live `MaterialItemId`, server range, tool). `AddItem` is still a tool-only grant — do not call it from a new remote. Leftover `DUNGEON3/7/8` nodes are no longer replenished (`KEYS` only).
 
@@ -131,7 +131,7 @@ Level/XP on `PlayerDataManager`, `PlayerLevelManager`, `BadgeHandler`, `Analytic
 | Redeem codes | `Template` has `RedeemCodes = {}`; still no UI |
 | Player level | Commented out |
 | Non-Studio depart | Hub `DungeonEntryDoorway` volumes (Destinations menu is Studio-only) |
-| Buzzing Plains (`DUNGEON1`) playable | `TeleportTrigger` removed from hub doorway until the site is fixed |
+| Buzzing Plains (`DUNGEON1`) playable | Hub `TeleportTrigger` **untagged** until the site is fixed; still in `KEYS` |
 | One loading treatment | One `LoadingScreen`; name is the trip title |
 | Sell uses inventory counts | `price * count` |
 | Clean enable list for sites | `KEYS` is now clean; world still contains 3 extra dungeons |
@@ -140,12 +140,13 @@ Level/XP on `PlayerDataManager`, `PlayerLevelManager`, `BadgeHandler`, `Analytic
 
 ## Suggested next engineering (after code review)
 
-1. Fix **DUNGEON1 / Buzzing Plains** and restore a tagged `TeleportTrigger` on `DungeonEntryDoorway` (site currently off).
-2. Align site id / folder / “Level N” copy, or document the mapping in UI.
-3. Delete or archive Disabled materializers, Draft, Old Map, Avo’s Workspace, unused destination folders, test GUIs.
+1. Fix **DUNGEON1 / Buzzing Plains** and restore a **tagged** `TeleportTrigger` on `DungeonEntryDoorway`, or drop `DUNGEON1` from `KEYS`.
+2. Refresh or drop `WOOD_1` dates; filter spawn the same way as the catalog.
+3. Align site id / folder / “Level N” copy, or document the mapping in UI.
+4. Delete or archive Disabled materializers, Draft, Old Map, unused destination folders (their **doors** still teleport), test GUIs.
 
 ---
 
 ## Full code review
 
-Completed 2026-08-26. See [code-review.md](code-review.md) for P0/P1 findings and a suggested refactor order. This backlog remains the shorter “what we hit while wiring MCP / Depart / teleport” list.
+Follow-up 2026-08-27. See [code-review.md](code-review.md) for closed P0s and remaining P1. This backlog is the shorter working list.

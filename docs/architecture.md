@@ -1,6 +1,6 @@
 # Gachamon Legends — Architecture
 
-Last updated: 2026-08-26  
+Last updated: 2026-08-27  
 Source of truth: Roblox Studio place **Gachamon Legends (Development)**. This git repo holds documentation only; there is no Rojo/Knit tree.
 
 ---
@@ -14,8 +14,8 @@ Classic Roblox service layout, not a framework:
 | `ServerScriptService` | Server scripts + modules (data, teleport, inventory, gear, FTUE, dungeon gen) |
 | `ReplicatedStorage` | Shared config, remotes, catalog, collectible templates, GUI prefabs |
 | `ReplicatedFirst` | Client boot (`Start` waits for load, then player data + FTUE) |
-| `StarterPlayer` | LocalScripts (player + character) |
-| `StarterGui` | ScreenGuis cloned per player |
+| `StarterPlayer` | LocalScripts (`StarterPlayerScripts` — session HUDs; `StarterCharacterScripts` empty of HUD) |
+| `StarterGui` | ScreenGuis cloned per player (`ResetOnSpawn = false` on HUD overlays) |
 | `ServerStorage` | Tools, site templates, old map, barriers |
 | `Workspace` | Hub map, destination rooms, FTUE props, art sandboxes |
 
@@ -30,15 +30,18 @@ World interaction is **CollectionService tags** (`TagEnumType`) plus attributes 
 ```
 ReplicatedFirst.Start
   waitForGameLoadedAsync
-  PlayerData.Client.Start()
+  PlayerDataClient.Start()     -- listen + GetPlayerData invoke if FireClient was missed
+  PlayerDataClient.loaded.Event:Wait()
   FtueManagerClient.Start()
 
 Server: PlayerDataInit
+  CharacterAdded → walk speed / IsAlive only (connected before ProfileStore yield)
   ProfileStore session (store name from place id)
   Reconcile against Template
   Init inventory, gear, catalog
   Fire PlayerDataLoaded
-  On character: FTUE + announcements
+  FtueManagerServer.onPlayerAdded once
+  announcements once
 ```
 
 Studio vs live is selected in `ServerConfiguration` by `game.PlaceId`.
@@ -53,25 +56,29 @@ Important: `SetLocation` only accepts keys in `DestinationConfig.KEYS`. Depart l
 
 On leave: inventory, catalog (known/recent), and gear are written back, then the session ends. Duplicate session lock kicks the player.
 
+`DeductCoins` returns `false` without changing balance if the amount is invalid or `Coins < amount`; `true` on success.
+
 ---
 
 ## Gameplay systems
 
 ### Collect (`MaterialReplenishModule`)
 
-Tagged destination parts get a weighted random item, a proximity prompt, and `MaterialItemId`. On collect, the server checks the equipped tool, adds to inventory, and updates the catalog. Neutral (empty) parts restock every 120 seconds.
+Tagged parts in **enabled** destination folders (`KEYS`, not DUNGEON3/7/8) get a weighted random item, a proximity prompt, and `MaterialItemId`. Hub FTUE `Forage1` is set up separately.
+
+Grant path is **`TryCollect(player, part)`**: part tagged, live `MaterialItemId`, server range (closest point vs `HumanoidRootPart`), equipped tool (or bare hands). Then bag, clear that node, wear tool, catalog. Neutral parts restock every 120 seconds.
+
+`PlayerInventoryManager.AddItem` is still a tool-only grant used **after** `TryCollect`. Do not expose it on a remote.
 
 ### Inventory / sell
 
 `PlayerInventoryManager` keeps `{ [userId] = { [itemId] = count } }` in memory. Persist via player data on remove.
 
-Sell-all that works: `SellAllProximityPrompt` on the `Buyer` tag → `SellAll` → `PlayerDataManager.AddCoins`.
-
-There is also a `Sale` RemoteEvent handler in `PlayerInventoryManager` that is **broken** (treats a number as an IntValue). Do not use it. See [backlog](backlog.md).
+Sell-all: `SellAllProximityPrompt` on the `Buyer` tag → `SellAll` (`price * count`) → `AddCoins`. There is no `Sale` remote.
 
 ### Gear
 
-`PlayerGearManager`: per-player map of instance ids → `{ ToolId, Equipped, Damage }`. Remotes for purchase, equip, repair. Max damage 100.
+`PlayerGearManager`: per-player map of instance ids → `{ ToolId, Equipped, Damage }`. Remotes for purchase, equip, repair. Max damage 100. `HasTool` looks up catalog `toolId`. Shop afford-check uses `GetPlayerData` / `GetToolInfo`.
 
 ### Teleport
 
@@ -79,49 +86,49 @@ All character moves go through `TeleportModule`:
 
 | API | When | Loading screen |
 |---|---|---|
-| `TeleportPlayerToDestination` | Depart HOME → site | Yes, site name (`StarterGui.LoadingScreen`) |
-| `TeleportPlayerToRoom` | Door → matching door | Only if `GetLocation` ≠ this dungeon (first arrival) |
-| `TeleportPlayerToSpawn` | Go Home / entry / exit door | Yes, unnamed (`MazeLoadingGui`) |
+| `TeleportPlayerToDestination` | Studio Destinations HOME → site | Yes, site name (`LoadingScreen`) |
+| `TeleportPlayerToRoom` | Door → matching door (including **hub `DungeonEntryDoorway`**) | Only if `GetLocation` ≠ this dungeon (first arrival) |
+| `TeleportPlayerToSpawn` | Go Home / in-maze `IsEntry` / `IsExit` | Yes, name `"Home"` (`LoadingScreen`) |
+
+HOME → site from **Studio Depart** uses `TeleportPlayerToDestination` (unstick `LookVector * 3 + (0, 3, 0)` on the in-maze `IsEntry` marker).
+
+**Production enter** is walking a hub `DungeonEntryDoorway` volume: marker is **not** `IsEntry`; it has `DungeonId` + `ToRoom` + `ToDoorDirection`. `SiteTeleportController` treats it as room-to-room into the first room.
 
 `TeleportHandler` listens to `TeleportRequest` (Depart UI) and routes to destination or spawn.
 
-`SiteTeleportController` listens to `TeleportTrigger` parts parented to `DungeonDoorway` markers:
+`SiteTeleportController` listens to **tagged** `TeleportTrigger` parts parented to `DungeonDoorway` markers:
 
 - `IsEntry` or `IsExit` → spawn (HOME)
 - `UnusedDoor` → ignore
-- else find the marker with matching `DungeonId` + `ToRoom` + `ToDoorDirection`, pivot with a LookVector offset so the player does not land on the trigger
+- else find the marker with matching `DungeonId` + `ToRoom` + `ToDoorDirection`, pivot with the unstick offset
 
-`EnteredRoom` (dungeonId, roomId) drives `CameraTransitionControl` (scriptable camera per room, short blackout) and `uiCoordinator.OnSite`. `nil, nil` means hub: reset camera, Destinations visible / Go Home hidden.
+`EnteredRoom` (dungeonId, roomId) drives `CameraTransitionControl` and `uiCoordinator.OnSite`. `nil, nil` means hub.
 
 Door debounce: `Touched` attribute, cleared after 0.5s via `task.delay`.
 
+**Buzzing Plains (`DUNGEON1`):** still in `KEYS`. Hub doorway `DungeonId` is `DUNGEON1`. The `TeleportTrigger` **part** may still exist; it has **no** `TeleportTrigger` tag, so walk-in is off until a site pass.
+
 ### FTUE
 
-Server `FtueManagerServer` runs a stage handler to completion, then advances. Client mirrors with beams / CTA on hub props. Stages poll (e.g. forage waits until inventory is non-empty).
+Server `FtueManagerServer` runs one in-flight `HandleAsync` per player (cancel on leave / stage change). Client mirrors with beams / CTA. Stages still poll (forage until bag non-empty).
 
 ### Dungeons
 
-Rooms are pre-baked under `Workspace.Destinations.DUNGEONn`. `DungeonGenerator` + `DungeonMaterializer` / V2 / v3 / ORIGINAL exist but are **Disabled**. `RoomFurnisherOLD` is leftover.
+Rooms are pre-baked under `Workspace.Destinations.DUNGEONn`. Generators (`DungeonMaterializer` / V2 / v3 / ORIGINAL) are **Disabled**.
 
 ---
 
 ## Client
 
-`ReplicatedFirst.Start` is the only client entry that waits for replication, then starts data + FTUE.
+`ReplicatedFirst.Start` waits for replication, data handshake, then FTUE.
 
-Controllers:
+Controllers are **session-length** under `StarterPlayerScripts`: PlayerInitialSetup, UICoordinator, LocalDataController, camera, proximity skins, announcements, jump parts, feedback NPC, maze loading, **Depart, bag, coins, gear, store, blacksmith, codex, settings, notifications, sound, music**.
 
-- **StarterPlayerScripts** (once per session): `PlayerInitialSetup`, `UICoordinator`, `LocalDataController`, `Depart` is **not** here — Depart is on the **character**. Camera, proximity prompt skins, announcements, jump parts, feedback NPC, maze loading screen.
-- **StarterCharacterScripts** (every spawn): bag, gear, store, blacksmith, coins, depart, codex, notifications, settings, music.
+`StarterCharacterScripts` has no HUD LocalScripts.
 
 `UICoordinator` is a tiny shared table (`OnSite`, `MusicMuted`, UI state enums). `GuiState` BindableEvent refreshes Depart button visibility.
 
-Maze loading client (`MazeLoadingScreenController`) currently **splits on the second remote argument**:
-
-- name present → enable `StarterGui.LoadingScreen`
-- name absent → enable dynamically created `MazeLoadingGui`
-
-That is why HOME → dungeon must pass the site name, and why room-to-room must not fire this remote.
+`MazeLoadingScreenController` always uses `StarterGui.LoadingScreen` and sets `SurveyTripName`. Leftover `MazeLoadingGui` is destroyed.
 
 ---
 
@@ -131,20 +138,21 @@ That is why HOME → dungeon must pass the site name, and why room-to-room must 
 |---|---|---|
 | `TeleportRequest` | C → S | Depart / Go Home |
 | `EnteredRoom` | S → C | Camera + OnSite |
-| `MazeLoadingScreen` | S → C | `"show"` / `"hide"`, optional site name |
+| `MazeLoadingScreen` | S → C | `"show"` / `"hide"` + trip name |
 | `PlayerDataLoaded` / `PlayerDataUpdated` | S → C | Profile |
+| `GetPlayerData` | C → S (fn) | Snapshot if `PlayerDataLoaded` was missed; coin HUD pull |
 | `CoinsChangedRemote` | S → C | Coin HUD |
-| `PlayerInventoryLoaded` / `Updated` / `Add` | S ↔ C | Bag |
+| `PlayerInventoryLoaded` / `Updated` | S → C | Bag |
 | `GetPlayerInventory` | C → S (fn) | Bag snapshot |
 | `GetPlayerGear`, `EquipToolRemote`, `PurchaseTool`, `CheckToolPurchase`, `RepairToolRemote`, `CheckToolRepair`, `IsToolEquipped` | gear shop |
 | `OpenBlacksmithUI` | S → C | Open repair UI |
 | `UpdateItemCatalog` | S → C | Codex |
-| `Sale` | C → S | **Unused / broken** — sell uses proximity prompt |
 | `DisplayAnnouncement` / `AnnouncementRemote` | S → C | What’s New / toasts |
 | `PlayClientSideSound` / `StopClientSideSound` | S → C | SFX |
-| `MazeLoadingScreen` | see above | |
 | `SettingsChanged` | Bindable | Music mute |
 | `GuiState` | Bindable | Depart buttons |
+
+No `Sale` remote. No `PlayerInventoryAdd` remote.
 
 ---
 
@@ -163,7 +171,7 @@ That is why HOME → dungeon must pass the site name, and why room-to-room must 
 
 ## Diagrams
 
-### HOME → dungeon (Depart)
+### HOME → dungeon (Studio Destinations)
 
 ```
 DepartGuiController
@@ -172,11 +180,18 @@ DepartGuiController
       → TeleportModule.TeleportPlayerToDestination
            MazeLoadingScreen show(name)
            EnteredRoom(dungeonId, entryRoomId)
-           PivotTo(entry doorway)
+           PivotTo(IsEntry marker + unstick)
            MazeLoadingScreen hide
            SetLocation(dungeonId)
-        → CameraTransitionControl: OnSite true, room camera
-        → Depart: Destinations hidden, Go Home shown
+```
+
+### HOME → dungeon (production walk-in)
+
+```
+Hub DungeonEntryDoorway.TeleportTrigger (tagged) Touched
+  → SiteTeleportController
+      DungeonId + ToRoom + ToDoorDirection (not IsEntry)
+      TeleportModule.TeleportPlayerToRoom(..., showLoading = first arrival)
 ```
 
 ### Room → room
@@ -187,17 +202,15 @@ TeleportTrigger.Touched
       (skip if UnusedDoor / IsEntry / IsExit)
       find destination doorway by attributes
       TeleportModule.TeleportPlayerToRoom(..., showLoading = location ~= dungeonId)
-      offset PivotTo so the player is off the trigger
-        → EnteredRoom only (camera fade) when already in that dungeon
 ```
 
 ### Dungeon → HOME
 
 ```
 Go Home button → TeleportRequest(HOME)
-  or IsEntry / IsExit door
+  or in-maze IsEntry / IsExit door
     → TeleportModule.TeleportPlayerToSpawn
-         MazeLoadingScreen show (no name)
+         MazeLoadingScreen show("Home")
          EnteredRoom(nil, nil)
          PivotTo(SpawnLocation + 4y)
          SetLocation(HOME)
@@ -210,4 +223,4 @@ Go Home button → TeleportRequest(HOME)
 - Rojo file sync, packages, or a server framework
 - A single client “app” module — many LocalScripts start themselves
 - Runtime maze generation (disabled)
-- Authoritative anti-cheat beyond “server owns coins / inventory / gear”
+- Authoritative anti-cheat beyond server-owned coins / inventory / gear / `TryCollect`

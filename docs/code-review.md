@@ -1,202 +1,121 @@
 # Gachamon Legends — Code review
 
-Date: 2026-08-26  
-Scope: Studio DataModel on **Gachamon Legends (Development)** (`136894937108297`). No code was changed in this pass.  
-Method: full read of live gameplay scripts (data, inventory, gear, collect, teleport, FTUE, client boot, shop/repair). Disabled generators and workspace Animate scripts were sampled, not line-audited.
+Date: 2026-08-27 (follow-up)  
+Prior pass: 2026-08-26.  
+Scope: Studio DataModel on **Gachamon Legends (Development)** (`136894937108297`).  
+Method: re-read live gameplay scripts after the 2026-08-27 Studio pass. Disabled generators and workspace Animate scripts were not line-audited.
+
+Place version notes and `ServerScriptService.Draft.DevLog` (2026-08-27) list the same fixes.
 
 ---
 
 ## Summary
 
-The game is a readable tagged-world + config-table + ProfileStore loop. Teleport was recently centralized and is in better shape than the economy and data boot paths. The highest risks are **client-authoritative harvest**, a **`Sale` remote that wipes inventory**, **respawn re-init that overwrites live bags**, and **FTUE stage loops that can stack**. Shop “can I buy?” is currently broken (`GetPlayerData` does not exist). Refactoring should start with one server session-owner and one harvest API, not more features.
+The 2026-08-26 P0 list is **closed** on the dev place: sell, respawn re-init, harvest remote, shop snapshot, DeductCoins, redeem template, loading GUI, HUD parent, and collect-vs-node. Teleport, session boot, and economy transactions are in decent shape for testers on **Coconana** and **Blackthorn**.
+
+Nothing remaining looks play-breaking for those two sites. Highest leftover risks are **Buzzing Plains parked** (`DUNGEON1` still in `KEYS`, hub trigger untagged), **leftover dungeon doors** that still teleport but do not save location, **WOOD_1 spawn vs catalog dates**, and **world/script archive**. Do not enable more sites or tool tiers until Buzzing Plains is verified or dropped from `KEYS`.
 
 ---
 
-## P0 — fix before testers / live
+## Closed since 2026-08-26
 
-### 1. `PlayerInventoryAdd` is a client-trusted grant
-
-- **Where:** `ServerScriptService.PlayerInventoryManager` ~132–138; client `ReplicatedStorage.FTUE.FtueManagerClient.StageHandlers.ForageFtueStage` ~54–58
-- **What’s wrong:** Any client can `FireServer(itemId)`. The server only checks “does this item exist and does the equipped tool (or bare hands) allow it.” No distance, no node ownership, no rate limit. Tutorial forage uses this on purpose; dungeon collect uses a *second* path (`MaterialReplenishModule` prompt → `AddItem` directly). Exploiters can fill a bag without visiting a node.
-- **Fix:** Remove the remote for gameplay grants. Collect only from the proximity handler (pass the part or a server-issued token). Keep FTUE on the same server path.
-
-### 2. `Sale` remote empties the bag and awards nothing
-
-- **Where:** `PlayerInventoryManager` ~116–125
-- **What’s wrong:** `OnServerEvent` calls `SellAll` (clears inventory, notifies client) then:
-
-  ```lua
-  local coins = 0
-  coins.Value = coins.Value + total
-  ```
-
-  That errors. Net effect if anything fires `Sale`: **items gone, no coins**. Working sell is `SellAllProximityPrompt` → `AddCoins`.
-- **Fix:** Delete the `Sale` handler (and the remote if unused). Do not “repair” it without also fixing stack pricing (below).
-
-### 3. `SellAll` pays once per item id, not per stack
-
-- **Where:** `PlayerInventoryManager.SellAll` ~100–108
-- **What’s wrong:** `total += GetItemBasePrice(itemId)` ignores `count`. Ten olives sell as one.
-- **Fix:** `total += price * count`. Add a unit test or Studio dump with mixed stacks.
-
-### 4. Respawn re-init overwrites live inventory/gear
-
-- **Where:** `ServerScriptService.Data.PlayerDataInit` ~166–172, `Initialize` ~60–91, `InitInventory` ~46–55
-- **What’s wrong:** `CharacterAdded` waits **8 seconds** then calls `Initialize` again. `InitInventory` writes profile snapshot counts into the live table (`inv[itemId] = count`), wiping anything collected since join/last save. Gear `InitPlayerTools` merges into the same live map. Also re-fires `PlayerDataLoaded` / catalog / coins and **restarts FTUE** (`onCharacterAdded` → `FtueManagerServer.onPlayerAdded`).
-- **Fix:** `CharacterAdded` should only set walk speed / alive. Persist or don’t touch inventory on respawn. Never start a second FTUE loop.
-
-### 5. FTUE can run two stage loops at once
-
-- **Where:** `FtueManagerServer.UpdateFtueStage` ~38–56; called from `onPlayerAdded` and again after the 8s respawn path
-- **What’s wrong:** Each call `task.spawn`s `HandleAsync` with no cancellation. Forage/Sell poll forever (`while … task.wait(3)`). A second spawn means two loops calling `UpdateFtueStage(next)` — stages skip, analytics double-log, or `stageHandler` is nil if `nextStage` is unexpected.
-- **Fix:** One in-flight handler per player; cancel on leave / Complete. Don’t call `UpdateFtueStage` just to refresh UI.
-
-### 6. Shop afford-check is dead
-
-- **Where:** `ToolPurchaseHandler` ~16–36
-- **What’s wrong:** `PlayerDataManager.GetPlayerData` **does not exist**. `CheckToolPurchase` errors or always fails. Actual purchase uses `GetCoins` and can still run. UI that asks “can I buy?” is lying.
-- **Fix:** Use `GetCoins`. Add `GetPlayerData` only if you want a real snapshot API.
+| Was | Now |
+|---|---|
+| P0 `PlayerInventoryAdd` client grant | Remote gone. Collect is `MaterialReplenishModule.TryCollect` (tag, `MaterialItemId`, range, tool). FTUE forage uses the same prompt path. |
+| P0 `Sale` remote wipes bag | Remote and handler deleted. Sell is Benji prompt → `SellAll` → `AddCoins`. |
+| P0 `SellAll` once per id | `price * count`. |
+| P0 respawn 8s `Initialize` | `CharacterAdded` only walk speed / `IsAlive`. FTUE starts once after profile load. |
+| P0 stacked FTUE loops | One in-flight handler per player; `task.cancel` on leave / new stage. |
+| P0 shop `GetPlayerData` missing | Server API + `ReplicatedStorage.Events.GetPlayerData`. Client handshake + coin HUD pull. |
+| P1 `DeductCoins` never refuses | Returns `false` if invalid/insufficient; `true` on success. |
+| P1 `GetToolPrice` / repair cost nil-index | Return `nil`. `GetToolInfo` added. |
+| P1 `HasTool` wrong key | Looks up catalog `toolId`. |
+| P1 `RepairTool` no nil guard | Returns `nil` if instance missing. |
+| P1 two loading GUIs | One `StarterGui.LoadingScreen`; `SurveyTripName` set; leftover `MazeLoadingGui` destroyed. |
+| P1 HOME→entry on trigger | Same unstick as room-to-room (`LookVector * 3 + (0, 3, 0)`). |
+| P1 client FTUE before data | `PlayerDataClient.Start` invokes snapshot; `loaded.Event:Wait()`. |
+| P1 character HUDs | HUD LocalScripts in `StarterPlayerScripts`. HUD ScreenGuis `ResetOnSpawn = false`. |
+| P0 redeem vs template | `Template.RedeemCodes = {}`; Get/Add init if missing. Still no UI. |
+| P1 replenish leftover dungeons | Stock only `DestinationConfig.KEYS` folders. |
+| Hub `DUNGEON1` doorway `DungeonId` | Was `DUNGEON11`; now `DUNGEON1`. |
 
 ---
 
-## P1 — wrong, racy, or easy to regress
+## Remaining P0
 
-### Economy / tools
+None for Coconana / Blackthorn testers.
 
-| Issue | Where | Notes |
-|---|---|---|
-| `DeductCoins` never refuses | `PlayerDataManager` ~58–68 | Subtracts then clamps to 0. Two overlapping purchases can both pass `coins < price` and both grant tools. Deduct should return false if `Coins < amount`. |
-| `GetToolPrice` / `GetToolRepairCost` nil-index | `ToolModule` ~15–17, ~126–127 | Invalid `toolId` throws instead of returning nil. Purchase handler assumes nil. |
-| `HasTool` looks up the wrong key | `PlayerGearManager` ~229–235 | Gear map is keyed by **instance** id; this indexes by catalog `toolId`. Always false. |
-| `RepairTool` no nil guard | `PlayerGearManager` ~202–208 | Bad `playerToolId` errors. |
-| Repair cost vs durability | `ToolRepairHandler` + `ToolConfig.Durability` | Repair is a flat `5 * Tier * 5` coins for 5 damage. Config `Durability` (30/60/…) is unused; a parallel `Damage` 0–100 system is what actually runs. Two durability models. |
-| `CheckToolPurchase` vs `PurchaseTool` | `ToolPurchaseHandler` | Check is broken (above). Purchase is a RemoteFunction named like an Event in comments. |
-
-### Collect / catalog
-
-| Issue | Where | Notes |
-|---|---|---|
-| `WOOD_1` expired | `ItemConfig` `AvailabilityEndDate = "2025-11-30"` | Codex `isItemAvailable` hides it; spawn (`GetItemListByType`) does **not** filter dates. Oakren Wood still appears in mazes, then looks “unknown/unavailable” in catalog. |
-| `RestorePlayerData` uses `known`/`recent` | `ItemCatalogModule` ~188–193 | Live code uses `Known`/`Recent`. If restore is ever called, known items vanish. `UpdatePlayerData` is the path used today. |
-| Replenish hits disabled dungeons | `MaterialReplenishModule.getAllMaterialParts` | Every tagged part under `Destinations`, including DUNGEON3/7/8. Extra prompts and 120s work. |
-| Prompt connections leak | `setPartActive` | Each replenish `ClearPrompts` then adds new `Triggered` connections. Confirm `ClearPrompts` destroys the prompt instance; if it only hides, handlers stack. |
-| Collect uses `item.Id` vs `item.Key` | `MaterialReplenishModule` ~87 vs ~91 | `getItemDetails` sets both; they match today. Fragile if a config row’s `Id` diverges from the dictionary key. |
-
-### Teleport / loading / Depart
-
-| Issue | Where | Notes |
-|---|---|---|
-| Two loading GUIs | `MazeLoadingScreenController` | Name → `StarterGui.LoadingScreen`; no name → `MazeLoadingGui`. HOME→site vs site→HOME look different. One remote, one GUI. |
-| Entry pivot on the trigger | `TeleportModule.TeleportPlayerToDestination` | Pivots to marker CFrame. Room-to-room offsets `LookVector * 3 + (0,3,0)`. `IsEntry` doors send you HOME. First-room landing is luck. |
-| `IsEntry` and `IsExit` both home | `SiteTeleportController` | Document or split. |
-| Depart button Studio-only | `DepartGuiController` ~51 | Testers/live have no picker unless another entry exists. |
-| Site id vs “Level N” | `DestinationConfig` | DUNGEON11 = “Level 1”, DUNGEON1 = “Level 3”. |
-| `GetStoreName()` can return nil | `PlayerDataInit` ~35–49 | Unknown place id → `ProfileStore.New(nil, …)`. |
-
-### Client boot / FTUE
-
-| Issue | Where | Notes |
-|---|---|---|
-| FTUE starts without waiting for data | `ReplicatedFirst.Start` ~29–43 | `HasLoaded()` false → `task.wait(2)` then `FtueManagerClient.Start()` → `PlayerDataClient.Get` **asserts**. Slow join = client error, no tutorial. Should `loaded:Wait()`. |
-| Character HUDs | `StarterCharacterScripts` | Bag, gear, store, blacksmith, coins, **Depart**, codex die with the character. |
-| `ScreenOverlayNEW` | `StarterGui` | Health/compass/alerts/quick slots — no owner script found. |
-
-### Misc
-
-| Issue | Where | Notes |
-|---|---|---|
-| Redeem codes | Template vs `PlayerDataManager` | Flag on; no `RedeemCodes` on template; first `table.find(nil)` errors. |
-| Deduct/Add coins unsigned | `PlayerDataManager` | Negative `AddCoins` is a deduct with no floor except Deduct’s clamp. |
-| `PlayerDataInit` session | `GetStoreName` | Studio + live place id only **warns**, still uses live store if PlaceId matches live. |
+`GetStoreName()` still returns **nil** on an unknown `PlaceId` (`PlayerDataInit`), which would make `ProfileStore.New(nil, …)` fail. Only hits if this place id is not development / testers / live.
 
 ---
 
-## P2 — debt (do not expand)
+## Remaining P1
+
+### Sites / teleport
+
+| Issue | Where | Notes |
+|---|---|---|
+| Buzzing Plains not playable | `Destinations.DUNGEON1.DungeonEntryDoorway` | `DungeonId` is `DUNGEON1`. A part named `TeleportTrigger` **still exists** but has **no** `TeleportTrigger` tag, so `SiteTeleportController` does not bind it. Still in `KEYS` — Studio Destinations can send players in. Parked until a site pass. |
+| `IsEntry` and `IsExit` both home | `SiteTeleportController` | In-maze entry/exit markers send you HOME. Hub enter is a **non-**`IsEntry` doorway with `ToRoom` / `ToDoorDirection`. Document on markers. |
+| Destinations button Studio-only | `DepartGuiController` | Intentional test skip. Production enter is hub `DungeonEntryDoorway`. |
+| Site id vs “Level N” | `DestinationConfig` | DUNGEON11 = “Level 1”, DUNGEON1 = “Level 3”, DUNGEON10 = “Level 10”. |
+| Leftover doors still move you | `DUNGEON3/7/8` tagged triggers | `SetLocation` ignores unknown keys. Character teleports; next join thinks HOME. Replenish no longer stocks those folders. |
+
+### Economy / catalog / tools
+
+| Issue | Where | Notes |
+|---|---|---|
+| `WOOD_1` expired | `ItemConfig` `AvailabilityEndDate = "2025-11-30"` | Codex `isItemAvailable` hides it; `GetItemListByType` (spawn) does **not** filter dates. Oakren Wood still appears in mazes. |
+| `RestorePlayerData` uses `known`/`recent` | `ItemCatalogModule` | Live path uses `Known`/`Recent`. Unused today (`UpdatePlayerData`). |
+| Two durability models | `ToolConfig.Durability` vs `Damage` 0–100 | Repair is `5 * Tier * 5` coins for 5 damage. Config 30/60/… unused. Live wear is `DamageEquippedTool`. |
+| `CanToolHarvestItem` nil-index | `ToolModule` | Guards `not toolId` but a **unknown string** still does `TOOLS[toolId].Type`. |
+| `AddCoins` unsigned | `PlayerDataManager` | Negative amount is a deduct with no floor. |
+| `AddItem` still tool-only | `PlayerInventoryManager` | Gameplay must use `TryCollect`. Do not add a remote on `AddItem`. |
+
+### Client / FTUE
+
+| Issue | Where | Notes |
+|---|---|---|
+| FTUE forage/sell/journey poll + print | Stage `HandleAsync` | `while … print … task.wait(3)` until collect/sell/leave hub. Lifecycle cancel exists; log spam remains. |
+| `ScreenOverlayNEW` | `StarterGui` | Health/compass/alerts/quick slots — no owner script. |
+| Studio vs live ProfileStore | `GetStoreName` | Opening this place file under live `PlaceId` in Studio **warns** but still uses the live store. |
+
+---
+
+## Remaining P2 (do not expand)
 
 - Disabled: `DungeonMaterializer` V1/V2/v3/ORIGINAL, `RoomFurnisherOLD`, `Draft.*`, `PlayerBarrier`.
 - World: `DUNGEON3/7/8`, `Avo's Workspace`, Workspace-root oasis templates, `ServerStorage.Old Map`, hub survey art for unenabled sites.
 - UI: `Testing`, `BagGUITEST`.
 - Commented: levels/XP, badges, old analytics, loading-screen boot in `ReplicatedFirst.Start`.
 - Typos: `PROFILE_STORE_DEBUB`, `REDEEM_CODES_MAX_LENGHT`.
-- `WorkspaceSetup` hard-codes a fog CFrame.
-- Water Block scripts duplicated across Map, templates, and dungeon rooms.
-- `ToolModule.HarvestWithTool` / `CheckDurability` unused; live wear is `DamageEquippedTool` random 0–4.
-
----
-
-## Important refactoring (order)
-
-Do these as sequenced PRs in Studio (or Rojo, if you ever extract). Each should be playable alone.
-
-### 1. Server session owner
-
-One module started from `PlayerDataInit`:
-
-- Owns ProfileStore session
-- `CharacterAdded` only applies character (speed, alive)
-- `PlayerRemoving` flushes inventory, gear, catalog, location once
-- No 8-second `Initialize`
-
-This unblocks FTUE and bag correctness.
-
-### 2. One harvest API
-
-- Server: `tryCollect(player, part)` — validates tag, `MaterialItemId`, prompt range, tool, then grants, damages tool, neutrals the part, marks catalog.
-- Delete `PlayerInventoryAdd` remote (or restrict to Studio).
-- FTUE forage should call the same function with the hub `Forage1` part, not a client FireServer.
-
-### 3. Economy transactions
-
-- `DeductCoins` returns false if insufficient; no clamp-as-success.
-- `SellAll`: `price * count`; single function used by Benji prompt; remove `Sale` remote.
-- Shop/repair: one `TryPurchaseTool` / `TryRepairTool` with validate → deduct → mutate. Fix `GetPlayerData`. Pick **one** durability model (0–100 damage **or** config Durability).
-
-### 4. Teleport / loading (small follow-up)
-
-Already centralized. Remaining:
-
-- One loading GUI; always pass a reason/name.
-- Same unstick offset for HOME→entry as room-to-room.
-- Non-Studio Depart (always show Destinations, or wire hub survey models).
-
-### 5. Client shell
-
-- Move Depart, bag, gear, store, coins, codex to `StarterPlayerScripts` (or a single `ClientApp` required from `ReplicatedFirst.Start` after data loads).
-- `FtueManagerClient.Start` only after `PlayerDataClient.loaded`.
-- Cancel FTUE handlers on stage change / leave.
-
-### 6. Delete or archive
-
-Move Draft, old materializers, Old Map, Avo’s Workspace, unused destination folders, test GUIs to a separate unpublished place or `ServerStorage.Archive` with scripts Disabled. Shrinks tag queries (`GetTagged` on forage/mining walks unused dungeons today).
-
-### 7. Config hygiene
-
-- `KEYS` remains the enable list (good).
-- Align site number / folder / Level label, or show folder id in UI for debug.
-- Drop or refresh `WOOD_1` dates; apply the same availability filter to spawn as to catalog.
-- Add `RedeemCodes = {}` to Template or set `REDEEM_CODES_ENABLED = false`.
+- `WorkspaceSetup` hard-coded fog CFrame.
+- Water Block scripts duplicated across Map, templates, and rooms.
+- `ToolModule.HarvestWithTool` / `CheckDurability` unused.
 
 ---
 
 ## What is in decent shape
 
-- ProfileStore session lock + reconcile + GDPR `AddUserId`
-- `DestinationConfig.KEYS` as the enable list + Depart sort
-- `TeleportModule` as the only PivotTo + loading + `SetLocation` owner
-- Door debounce via `task.delay` (no stuck `Touched` on early return)
-- Tag-driven world (buyer, blacksmith, harvest, doors) — right idea
-- Item/tool config tables — right idea, dates and dual durability need cleanup
-- FTUE stage enum + analytics step map — structure is fine; lifecycle is not
+- ProfileStore session lock + reconcile + GDPR `AddUserId` + `RedeemCodes` on template
+- Session: `CharacterAdded` is character-only; FTUE once per join; client waits on `loaded`
+- `DestinationConfig.KEYS` enable list + Depart sort
+- `TeleportModule` owns PivotTo + one loading GUI + `SetLocation`; unstick on HOME→entry
+- Hub enter: untagged/`ToRoom` doorway (not Destinations menu)
+- `TryCollect` + KEYS-only replenish
+- `DeductCoins` / `SellAll` stack pricing / shop `GetPlayerData` + `GetToolInfo`
+- HUD LocalScripts on `StarterPlayerScripts`; HUD GUIs persist across respawn
+- Door debounce via `task.delay`
 
 ---
 
-## Suggested review order for the next implementation pass
+## Suggested next engineering
 
-1. P0 #2–5 (sell, respawn, FTUE loops) — data loss  
-2. P0 #1 (harvest remote) — economy exploit  
-3. P0 #6 + DeductCoins — shop  
-4. Loading GUI unify + entry offset  
-5. Client boot wait + HUD parent  
-6. World/script archive  
+1. **Buzzing Plains site pass** — verify rooms/`DungeonId`/`IsEntry`, then restore a **tagged** `TeleportTrigger` on `DungeonEntryDoorway`, or remove `DUNGEON1` from `KEYS`.
+2. **WOOD_1 dates** — refresh or drop; filter spawn with the same availability check as the catalog.
+3. **Archive** — Draft, old materializers, Old Map, Avo’s Workspace, unused destination folders, test GUIs. Leftover tagged **doors** in DUNGEON3/7/8 still teleport.
+4. Align site id / folder / “Level N”, or document the mapping next to `KEYS`.
+5. `CanToolHarvestItem` nil-safe; pick one durability model; `AddCoins` reject negatives.
+6. Quiet or event-drive FTUE forage/sell waits.
 
-Do not enable more sites or tool tiers until 1–3 are done.
+Do not enable more sites or tool tiers until (1) is done or `DUNGEON1` is dropped from `KEYS`.
