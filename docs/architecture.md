@@ -126,7 +126,7 @@ Controllers are **session-length** under `StarterPlayerScripts`: PlayerInitialSe
 
 `StarterCharacterScripts` has no HUD LocalScripts.
 
-`UICoordinator` is a tiny shared table (`OnSite`, `MusicMuted`, UI state enums). `GuiState` BindableEvent refreshes Depart button visibility.
+`UICoordinator` is a tiny shared table (`OnSite`, `MusicMuted`, UI state enums). `MusicMuted` is loaded from / saved to the profile. `GuiState` BindableEvent refreshes Depart button visibility.
 
 `MazeLoadingScreenController` always uses `StarterGui.LoadingScreen` and sets `SurveyTripName`. Leftover `MazeLoadingGui` is destroyed.
 
@@ -149,7 +149,8 @@ Controllers are **session-length** under `StarterPlayerScripts`: PlayerInitialSe
 | `UpdateItemCatalog` | S → C | Codex |
 | `DisplayAnnouncement` / `AnnouncementRemote` | S → C | What’s New / toasts |
 | `PlayClientSideSound` / `StopClientSideSound` | S → C | SFX |
-| `SettingsChanged` | Bindable | Music mute |
+| `SetMusicMuted` | C → S | Persist music mute on profile |
+| `SettingsChanged` | Bindable | Apply mute to volume / icons |
 | `GuiState` | Bindable | Depart buttons |
 
 No `Sale` remote. No `PlayerInventoryAdd` remote.

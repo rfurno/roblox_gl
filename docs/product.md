@@ -103,6 +103,7 @@ ProfileStore session per user. Template:
 - `KnownItems` / `RecentItems` (codex)
 - `Announcements`
 - `RedeemCodes` (empty table; flag on, no UI)
+- `MusicMuted` (default false; settings toggle)
 - `Gear`
 - `Location` (`HOME` or a dungeon key)
 - `LastSession`

@@ -27,6 +27,7 @@ Status **Fixed (dev place)** means changed in the open Studio session this week,
 | `Template.RedeemCodes = {}`; redeem APIs init if missing | DevLog 2026-08-27 |
 | HUD LocalScripts → `StarterPlayerScripts`; GUIs `ResetOnSpawn = false` | Depart, bag, coins, gear, store, blacksmith, codex, settings, notifications, sound, music. DevLog 2026-08-27 |
 | Collect `TryCollect`: node + range + tool; leftover dungeons not stocked | DevLog 2026-08-27 |
+| `MusicMuted` persisted on profile | Settings load/save; music volume on play. DevLog 2026-08-27 |
 
 ---
 
