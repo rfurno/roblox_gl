@@ -1,7 +1,7 @@
 # Gachamon Legends — Architecture
 
-Last updated: 2026-08-30 (Studio bake: layout-set vs single 4-door templates)  
-Source of truth: Roblox Studio place **Gachamon Legends (Development)**. This git repo holds documentation only; there is no Rojo/Knit tree.
+Last updated: 2026-08-30 (tools, blacksmith repair, announcements ConfigService, Coconana `4_3`↔`3_3`)  
+Source of truth: Roblox Studio place **Gachamon Legends (Development)**. Live/Alpha is `115297023432140`. This git repo holds documentation only; there is no Rojo/Knit tree.
 
 ---
 
@@ -22,12 +22,12 @@ Classic Roblox service layout, not a framework:
 | `ReplicatedFirst` | Client boot (`Start` waits for load, then player data + FTUE) |
 | `StarterPlayer` | LocalScripts (`StarterPlayerScripts` — session HUDs; `StarterCharacterScripts` empty of HUD) |
 | `StarterGui` | ScreenGuis cloned per player (`ResetOnSpawn = false` on HUD overlays) |
-| `ServerStorage` | Tools, site templates, old map, barriers |
+| `ServerStorage` | Tools, site templates (`SiteModelTemplates`), barriers |
 | `Workspace` | Hub map, destination rooms, FTUE props, art sandboxes |
 
 Communication is RemoteEvents / RemoteFunctions under `ReplicatedStorage.Events`, plus a few BindableEvents for client-only GUI state.
 
-World interaction is **CollectionService tags** (`TagEnumType`) plus attributes on doorway markers. Config is **Luau tables** (`ItemConfig`, `ToolConfig`, `DestinationConfig`). Persistence is **ProfileStore**.
+World interaction is **CollectionService tags** (`TagEnumType`) plus attributes on doorway markers. Config is **Luau tables** (`ItemConfig`, `ToolConfig`, `DestinationConfig`) plus **ConfigService** `Announcements` (What’s New). Persistence is **ProfileStore**.
 
 ---
 
@@ -65,6 +65,8 @@ On leave: inventory, catalog (known/recent), and gear are written back, then the
 
 `DeductCoins` returns `false` without changing balance if the amount is invalid or `Coins < amount`; `true` on success.
 
+`GetAnnouncements` / `AddAnnouncement` init `profile.Data.Announcements = {}` if the field is missing (same pattern as `RedeemCodes`).
+
 ---
 
 ## Gameplay systems
@@ -85,7 +87,15 @@ Sell-all: `SellAllProximityPrompt` on the `Buyer` tag → `SellAll` (`price * co
 
 ### Gear
 
-`PlayerGearManager`: per-player map of instance ids → `{ ToolId, Equipped, Damage }`. Remotes for purchase, equip, repair. Max damage 100. `HasTool` looks up catalog `toolId`. Shop afford-check uses `GetPlayerData` / `GetToolInfo`.
+`PlayerGearManager`: per-player map of instance ids → `{ ToolId, Equipped, Damage }`. Remotes for purchase, equip, repair. Max damage 100 (live wear). `HasTool` looks up catalog `toolId`. Shop afford-check uses `GetPlayerData` / `GetToolInfo` (`GetToolInfo` is an alias of `GetToolById`).
+
+`RepairToolRemote` always returns remaining **Damage** as a number (current value if the repair did not run: already 0 or broke). Blacksmith UI is nil-safe. Playtested 2026-08-30.
+
+`ToolModule` is the catalog + harvest check: `CanToolHarvestItem` (silent `false` on miss), `GetTools` (no unused `Durability` copy), `GetToolPrice`, `GetToolRepairCost` (`5 * Tier`). Collect goes `TryCollect` → `CanPlayerHarvestItem` → `CanToolHarvestItem`, then `DamageEquippedTool`. Config `TIERS[].Durability` / `SpeedFactor` are unused.
+
+### Announcements
+
+`AnnouncementModule` loads What’s New from **ConfigService** `GetValue("Announcements")`. If that key is missing (live after a script copy), it uses `{}` and warns — it does not iterate nil. Copying scripts does **not** copy ConfigService values. Add the same `Announcements` table on each published place to show What’s New.
 
 ### Teleport
 
@@ -119,6 +129,8 @@ Hub doors are parented under `Workspace.Destinations.<KEY>.DungeonEntryDoorway` 
 Door debounce: `Touched` attribute, cleared after 0.5s via `task.delay`.
 
 **Buzzing Plains (`DUNGEON5x5`):** in `KEYS`. Hub `DungeonEntryDoorway` marker is `DungeonId` `DUNGEON5x5`, `ToRoom` `5_3`, `ToDoorDirection` `S`. Landing is `Room_5_3` south (`IsEntry`). Hub `TeleportTrigger` is tagged and aligned to the previous DUNGEON14 gate on `BuzzingPlainsEntrance`. Hub walk-in playtested 2026-08-28. In-maze `IsEntry` (town-side gate) and `IsExit` (spawn, join facing) playtested 2026-08-30.
+
+**Coconana (`DUNGEON11`):** hub `ToRoom` `4_2` `S`. `Room_4_3` north pairs with `Room_3_3` south (south doorway added 2026-08-30 after a bake miss). That pair playtested.
 
 ### FTUE
 
@@ -190,10 +202,11 @@ No `Sale` remote. No `PlayerInventoryAdd` remote.
 |---|---|
 | `DestinationConfigModule` | Enabled sites (`KEYS` + `DESTINATIONS`) |
 | `ItemConfig` | Harvestables, rarity, tools required |
-| `ToolConfig` | Tool ids, tiers, prices |
+| `ToolConfig` | Tool ids, types, prices. Live wear is gear `Damage` 0–100, not `TIERS.Durability` |
 | `ClientConfiguration` | Notification copy / art |
 | `ServerConfiguration` | Place ids, datastore names, walk speed |
 | `PlayerDataKey` / `FtueStage` / `TagEnumType` | String enums |
+| ConfigService `Announcements` | What’s New. Per-place; not in the DataModel script tree |
 
 ---
 
@@ -264,3 +277,22 @@ in-maze IsEntry door
 - Runtime maze generation (disabled; Command Bar bake in `LevelGeneration`, keep off in published places)
 - Authoritative anti-cheat beyond server-owned coins / inventory / gear / `TryCollect`
 - Session restore into a dungeon — join always `SetLocation(HOME)`
+
+---
+
+## Copying Development → published (Alpha / Testers)
+
+Scripts are the same tree. Gameplay to copy after Dev edits:
+
+- `Teleport.TeleportModule`, `Teleport.SiteTeleportController`
+- `StarterPlayerScripts.CameraTransitionControl`
+- `ReplicatedStorage.ToolModule`, `StarterPlayerScripts.StoreController`
+- `Economy.PlayerGearManager`, `StarterPlayerScripts.BlacksmithController`
+- `Announcements.AnnouncementModule`, `Data.PlayerDataManager`
+
+Do **not** copy (or keep **Disabled**): `LevelGeneration.*`, `Draft.DevLog`.
+
+Not scripts:
+
+- ConfigService `Announcements` — add on the published place or What’s New stays empty
+- DataModel doors (e.g. Coconana `Room_3_3` south) — copy the instance or the destination folder, not a script

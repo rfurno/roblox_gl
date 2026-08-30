@@ -1,6 +1,6 @@
 # Gachamon Legends — Backlog
 
-Last updated: 2026-08-30 (Savannah bake + live DataModel pass)  
+Last updated: 2026-08-30 (tools, blacksmith, announcements, Coconana `4_3`)  
 Items below were found while connecting Studio MCP, mapping the tree, fixing Depart / `KEYS`, and simplifying teleport. Studio DevLog (`ServerScriptService.Draft.DevLog`) is the in-place version comment.
 
 Priority: **P0** play-breaking or data-wrong · **P1** wrong UX / easy to regress · **P2** dead code / naming / cleanup.
@@ -27,6 +27,11 @@ Status **Fixed (dev place)** means changed in the open Studio session, not neces
 | HUD LocalScripts → `StarterPlayerScripts` | Related ScreenGuis `ResetOnSpawn = false` |
 | Collect `TryCollect` | Node + range + tool; KEYS-only replenish |
 | `MusicMuted` persisted | |
+| In-maze `IsEntry` / `IsExit` | Exit → spawn, join facing. Entry → town side of hub gate. Playtested. |
+| `ToolModule` cleanup | `GetToolInfo` aliases `GetToolById`; harvest checks silent; `GetTools` does not copy unused `Durability`. |
+| Blacksmith repair nil | `RepairToolRemote` always returns remaining `Damage`. UI nil-safe. Playtested. |
+| Coconana `4_3` north | Unpaired bake door. Added `Room_3_3` south. Playtested on Dev. Copy the doorway (not a script) to published places. |
+| Announcements on live | ConfigService `Announcements` missing → empty table, no crash. `GetAnnouncements` inits `{}`. Add the config key on Alpha to show What’s New. |
 
 ---
 
@@ -115,9 +120,9 @@ Keep while baking here: `LevelGeneration.DungeonMaterializerv3` (+ ORIGINAL, `Du
 
 1. Park or delete Workspace-root bake clones and `Avo's Workspace` so tagged leftover doors cannot fire.
 2. Playtest store buy, axe harvest, Buzzing Plains walk-in (loading once), Go Home, FTUE forage→sell→journey.
-3. Playtest Coconana (`ToRoom` `4_2` S) and Blackthorn (`10_5` S, marker Y≈65) hub walk-ins.
+3. Playtest Coconana hub walk-in (`ToRoom` `4_2` S) and Blackthorn (`10_5` S, marker Y≈65). Coconana `4_3` north is fixed on Dev.
 4. Align site id / folder / “Level N”, or drop Level N from Depart copy.
 5. If the Savannah bake should **replace** live `DUNGEON5x5`, move `GeneratedLevels` output into Destinations and retarget the hub `ToRoom` / `ToDoorDirection`.
-6. Keep `DungeonMaterializerv3` Disabled in published places.
+6. Keep `DungeonMaterializerv3` Disabled in published places. Add ConfigService `Announcements` on Alpha if What’s New should show.
 
 Do not add Rojo. Do not re-enable dungeon generation at runtime.

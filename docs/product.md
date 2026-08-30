@@ -89,7 +89,9 @@ Folder id, marketing name, and “Level N” label do **not** line up (site 11 i
 
 Live dungeon generation is disabled; mazes are pre-placed rooms. Studio bake (`DungeonMaterializerv3`) is Command Bar only: `CoconanaOasisTemplate` is a 15-layout set, `BuzzingSavannahTemplate` is a single all-four-doors room (unused doorways hidden at bake).
 
-The Destinations button in Depart is **Studio-only** (test skip). Testers/live enter a site by walking the hub `DungeonEntryDoorway` volume. Survey-trip models are art around those volumes. Coconana, Buzzing Plains, and Blackthorn walk-ins are on. Buzzing Plains hub door lands on `Room_5_3` south (`IsEntry`).
+The Destinations button in Depart is **Studio-only** (test skip). Testers/live enter a site by walking the hub `DungeonEntryDoorway` volume. Survey-trip models are art around those volumes. Coconana, Buzzing Plains, and Blackthorn walk-ins are on. Buzzing Plains hub door lands on `Room_5_3` south (`IsEntry`). Coconana `Room_4_3` north lands on `Room_3_3` south.
+
+What’s New is ConfigService `Announcements` on **each place**. If that key is missing, the game skips the board instead of erroring.
 
 ---
 

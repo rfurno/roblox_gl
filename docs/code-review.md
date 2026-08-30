@@ -13,7 +13,7 @@ The live loop is still in decent shape: ProfileStore boot, `TryCollect`, sell-al
 
 The place is still carrying Studio-only weight: bake pipeline, ~27k workspace-root room templates, `Avo's Workspace`, and test GUIs. `DUNGEON8`, `BagGUITEST`, and `Old Map` are gone. After archive, remaining bugs are small and local.
 
-2026-08-30: `DungeonMaterializerv3` Command Bar locals; `templateSet` is a 15-layout prefix (`CoconanaOasisTemplate`) or a single 4-door model (`BuzzingSavannahTemplate`, unused doorways hidden). Bake working. Instance attributes cleared.
+2026-08-30: `DungeonMaterializerv3` Command Bar locals; Savannah 4-door bake; in-maze entry/exit; `ToolModule` cleanup; blacksmith repair always returns Damage; Coconana `4_3`↔`3_3` south door; announcements tolerate missing ConfigService key.
 
 2026-08-29 refactor (dev place): ToolModule requires restored on shop + harvest; join `SetLocation(HOME)`; KEYS on teleports; SSS folders (`Teleport`, `Collect`, `Economy`, `World`); purchase/repair remotes on `PlayerGearManager`; unused ToolModule durability APIs trimmed; FTUE waits on inventory/location. `Queue` stays (`Notifications`).
 
@@ -65,7 +65,7 @@ Either make Description match the folder, or stop showing “Level N” and show
 
 - Runtime maze gen: keep off. Pre-baked rooms are the game.
 - Tool ladder: config has 5 tiers + unused types (Sickle, Knife, Hammer); live tools are three Willow items. Either ship tier 2 or strip the unused config.
-- Redeem codes: `REDEEM_CODES_ENABLED = true` and APIs exist; **no UI**. Turn the flag off or ship the UI.
+- Redeem codes: flag off; template + APIs; **no UI**.
 - `ScreenOverlayNEW`: health / compass / alerts / quick slots. `DamageSystem` already applies tagged hazard damage to Humanoid; nothing drives this HUD.
 - Two durability models: live wear is `Damage` 0–100 via `DamageEquippedTool`. Collect uses `ToolModule.CanToolHarvestItem`. `ToolConfig.TIERS[].Durability` and `HarvestWithTool` / `CheckDurability` are unused.
 
@@ -93,7 +93,7 @@ Either make Description match the folder, or stop showing “Level N” and show
 | P1 `DeductCoins` never refuses | Returns `false` if invalid/insufficient; `true` on success. |
 | P1 `GetToolPrice` / repair cost nil-index | Return `nil`. `GetToolInfo` added. |
 | P1 `HasTool` wrong key | Looks up catalog `toolId`. |
-| P1 `RepairTool` no nil guard | Returns `nil` if instance missing. |
+| P1 `RepairTool` no nil guard | Returns remaining `Damage` (0 if instance missing). Remote always a number. |
 | P1 two loading GUIs | One `StarterGui.LoadingScreen`; `SurveyTripName` set; leftover `MazeLoadingGui` destroyed. |
 | P1 HOME→entry on trigger | Same unstick as room-to-room (`LookVector * 3 + (0, 3, 0)`). |
 | P1 client FTUE before data | `PlayerDataClient.Start` invokes snapshot; `loaded.Event:Wait()`. |
@@ -108,6 +108,9 @@ Either make Description match the folder, or stop showing “Level N” and show
 | Doors ignore `KEYS` | `SiteTeleportController` returns if `DungeonId` not in `KEYS`. |
 | FTUE forage print-poll | Waits on inventory / location signals. |
 | v3 bake attributes | Cleared. Knobs are Command Bar locals. `BuzzingSavannahTemplate` supported. |
+| Blacksmith `remainingDamage > 0` on nil | Repair remote returns number; UI nil-safe. Playtested. |
+| Live `AnnouncementModule` iterate nil | Missing ConfigService `Announcements` → `{}` + warn. |
+| Coconana `4_3` north no landing | `Room_3_3` south doorway added on Dev. |
 
 ---
 
@@ -124,5 +127,7 @@ Either make Description match the folder, or stop showing “Level N” and show
 - Door debounce via `task.delay`
 
 Intentional, not bugs: Destinations button is Studio-only. In-maze `IsExit` → spawn (join facing); `IsEntry` → just outside that site’s hub gate. Both playtested 2026-08-30.
+
+Copying scripts to Alpha does **not** copy ConfigService `Announcements` or DataModel doors (Coconana `3_3` south). Keep `LevelGeneration` Disabled on published places.
 
 Also: opening this place file under live `PlaceId` in Studio **warns** but still uses the live ProfileStore. `WorkspaceSetup` hard-coded fog CFrame can die with the archive pass.
