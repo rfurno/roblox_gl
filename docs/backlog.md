@@ -1,7 +1,7 @@
 # Gachamon Legends — Backlog
 
-Last updated: 2026-08-28 (Buzzing Plains → DUNGEON5x5)  
-Items below were found while connecting Studio MCP, mapping the tree, fixing Depart / `KEYS`, and simplifying teleport. Studio DevLog (`ServerScriptService.Draft.DevLog`) is the in-place version comment.
+Last updated: 2026-08-29 (SSS folders, Location HOME on join, FTUE waits)  
+Items below were found while connecting Studio MCP, mapping the tree, fixing Depart / `KEYS`, and simplifying teleport. Studio DevLog (`ServerScriptService.Draft.DevLog`) is the in-place version comment. Review pass 2026-08-29 confirmed the list below against the live DataModel.
 
 Priority: **P0** play-breaking or data-wrong · **P1** wrong UX / easy to regress · **P2** dead code / naming / cleanup.
 
@@ -46,6 +46,22 @@ destinationsButton.Visible = isStudio and not uiCoordinator.OnSite
 ```
 
 Intentional test skip. Production enter is each site’s `DungeonEntryDoorway` `TeleportTrigger`.
+
+### Stale `Location` after rejoin
+
+Profile `Location` is written on teleport but **not reset on join**. Players always spawn at hub. If the last session left `Location = DUNGEON5x5`, walking the Buzzing Plains gate skips the loading screen (`GetLocation == dungeonId`) and Journey FTUE can complete without leaving hub this session. Reset to `HOME` on session start (or restore into the dungeon — do not leave it dangling).
+
+### `BagGUITEST` is Enabled
+
+`StarterGui.BagGUITEST` clones to every player. `Testing` and `ScreenOverlayNEW` are at least disabled.
+
+### Hub doors live under Destinations, not Map
+
+`Workspace.Destinations.DUNGEON5x5|10|11|8.DungeonEntryDoorway` are CFramed onto survey-trip gates. `DUNGEON8` hub volume at `(-236, 39, 21)` still teleports. `SiteTeleportController` does not check `KEYS`.
+
+### Workspace-root bake clones replicate
+
+~15 `CoconanaOasisTemplate*` models plus `BuzzingSavannahTemplate` sit at Workspace root (~27k descendants). They include tagged `DungeonDoorwayMarker`s. `ServerStorage.SiteModelTemplates` already has the bake set.
 
 ### Site numbering is inconsistent
 
@@ -131,19 +147,21 @@ Level/XP on `PlayerDataManager`, `PlayerLevelManager`, `BadgeHandler`, `Analytic
 | Buzzing Plains (`DUNGEON5x5`) playable | Hub walk-in playtested; lands `Room_5_3` south |
 | One loading treatment | One `LoadingScreen`; name is the trip title |
 | Sell uses inventory counts | `price * count` |
-| Clean enable list for sites | `KEYS` is now clean; world still contains 3 extra dungeons |
+| Clean enable list for sites | `KEYS` is now clean; world still contains `DUNGEON8` plus workspace-root templates |
+| `Location` persists across sessions | Written on teleport; not restored and not reset on join |
+| In-dungeon HUD | `ScreenOverlayNEW` exists, Enabled=false, no controller |
 
 ---
 
-## Suggested next engineering (after code review)
+## Suggested next engineering
 
-1. Delete or archive leftover destination folders (their **doors** still teleport), Draft, old materializers, Old Map, test GUIs.
-2. Align site id / folder / “Level N” copy, or document the mapping in UI.
-3. Filter spawn (`GetItemListByType`) with the same availability dates as the catalog.
-4. Confirm Coconana (`DUNGEON11`) hub walk-in after snapping `DungeonEntryDoorway` onto `CoconanaOasisEntrance`.
+Passes 0–4 of the 2026-08-29 refactor are on the **dev place**: ToolModule requires restored, `Location` HOME on join, KEYS on doors, SSS folders, purchase/repair on `PlayerGearManager`, unused ToolModule APIs trimmed, FTUE waits on signals. `Queue` stays (Notifications). Bake pipeline stays.
 
----
+Still open:
 
-## Full code review
+1. Playtest store buy, axe harvest, Buzzing Plains walk-in (loading once), Go Home, FTUE forage→sell→journey.
+2. Playtest Coconana (`ToRoom` `4_2` S) and Blackthorn (`10_5` S, marker Y≈65) hub walk-ins.
+3. Align site id / folder / “Level N”, or drop Level N from Depart copy. Filter spawn with `isItemAvailable`.
+4. Park workspace-root bake templates / Avo’s Workspace under a `_Studio` folder if they get in the way. Do not delete bake.
 
-Follow-up 2026-08-28. See [code-review.md](code-review.md) for closed P0s and remaining P1. This backlog is the shorter working list.
+Do not add Rojo. Do not re-enable dungeon generation in this place.

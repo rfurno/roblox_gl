@@ -1,6 +1,6 @@
 # Gachamon Legends — Architecture
 
-Last updated: 2026-08-28  
+Last updated: 2026-08-29 (SSS folders + session Location)  
 Source of truth: Roblox Studio place **Gachamon Legends (Development)**. This git repo holds documentation only; there is no Rojo/Knit tree.
 
 ---
@@ -11,7 +11,13 @@ Classic Roblox service layout, not a framework:
 
 | Location | Role |
 |---|---|
-| `ServerScriptService` | Server scripts + modules (data, teleport, inventory, gear, FTUE, dungeon gen) |
+| `ServerScriptService.Teleport` | `TeleportModule`, `TeleportHandler`, `SiteTeleportController` |
+| `ServerScriptService.Collect` | `MaterialReplenishModule` + init |
+| `ServerScriptService.Economy` | inventory, gear (purchase/equip/repair remotes), sell-all, blacksmith prompt |
+| `ServerScriptService.World` | `DamageSystem`, `WorkspaceSetup` |
+| `ServerScriptService.Data` | ProfileStore session, `PlayerDataManager`, Template |
+| `ServerScriptService.FTUE` | stage handlers |
+| `ServerScriptService.LevelGeneration` | Studio bake only (Disabled) |
 | `ReplicatedStorage` | Shared config, remotes, catalog, collectible templates, GUI prefabs |
 | `ReplicatedFirst` | Client boot (`Start` waits for load, then player data + FTUE) |
 | `StarterPlayer` | LocalScripts (`StarterPlayerScripts` — session HUDs; `StarterCharacterScripts` empty of HUD) |
@@ -36,8 +42,9 @@ ReplicatedFirst.Start
 
 Server: PlayerDataInit
   CharacterAdded → walk speed / IsAlive only (connected before ProfileStore yield)
-  ProfileStore session (store name from place id)
+  ProfileStore session (store name from place id; unknown id → development store)
   Reconcile against Template
+  SetLocation(HOME) — join always starts at hub
   Init inventory, gear, catalog
   Fire PlayerDataLoaded
   FtueManagerServer.onPlayerAdded once
@@ -52,7 +59,7 @@ Studio vs live is selected in `ServerConfiguration` by `game.PlaceId`.
 
 `PlayerDataManager.Profiles[player]` holds the live ProfileStore profile.
 
-Important: `SetLocation` only accepts keys in `DestinationConfig.KEYS`. Depart listing only includes `DESTINATIONS` entries whose key is also in `KEYS`. That pair is the site enable list. On load, profile `Location` `DUNGEON1` or `DUNGEON14` is rewritten to `DUNGEON5x5` (Buzzing Plains folder rename).
+Important: `SetLocation` only accepts keys in `DestinationConfig.KEYS`. Depart listing only includes `DESTINATIONS` entries whose key is also in `KEYS`. That pair is the site enable list. On join, `Location` is set to `HOME`. It is written again on teleport; it is not restored into a dungeon.
 
 On leave: inventory, catalog (known/recent), and gear are written back, then the session ends. Duplicate session lock kicks the player.
 
@@ -94,12 +101,15 @@ HOME → site from **Studio Depart** uses `TeleportPlayerToDestination` (unstick
 
 **Production enter** is walking a hub `DungeonEntryDoorway` volume: marker is **not** `IsEntry`; it has `DungeonId` + `ToRoom` + `ToDoorDirection`. `SiteTeleportController` treats it as room-to-room into the first room.
 
+Hub doors are parented under `Workspace.Destinations.<KEY>.DungeonEntryDoorway` (not under `Workspace.Map`). The models are CFramed onto the survey-trip gates in `Map.Decor.SurveyTripEntrances`. Art and trigger live in two trees.
+
 `TeleportHandler` listens to `TeleportRequest` (Depart UI) and routes to destination or spawn.
 
 `SiteTeleportController` listens to **tagged** `TeleportTrigger` parts parented to `DungeonDoorway` markers:
 
 - `IsEntry` or `IsExit` → spawn (HOME)
 - `UnusedDoor` → ignore
+- `DungeonId` not in `KEYS` → ignore (bake templates at Workspace root)
 - else find the marker with matching `DungeonId` + `ToRoom` + `ToDoorDirection`, pivot with the unstick offset
 
 `EnteredRoom` (dungeonId, roomId) drives `CameraTransitionControl` and `uiCoordinator.OnSite`. `nil, nil` means hub.
@@ -223,5 +233,6 @@ Go Home button → TeleportRequest(HOME)
 
 - Rojo file sync, packages, or a server framework
 - A single client “app” module — many LocalScripts start themselves
-- Runtime maze generation (disabled)
+- Runtime maze generation (disabled; bake scripts still in `LevelGeneration`)
 - Authoritative anti-cheat beyond server-owned coins / inventory / gear / `TryCollect`
+- Session restore into a dungeon — join always `SetLocation(HOME)`

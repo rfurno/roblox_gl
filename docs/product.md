@@ -1,6 +1,6 @@
 # Gachamon Legends — Product
 
-Last updated: 2026-08-28  
+Last updated: 2026-08-29  
 Place under review: **Gachamon Legends (Development)** (`136894937108297`)
 
 This document describes what the game is, who it is for, and what a session looks like. Implementation lives in Roblox Studio, not in this git repo.
@@ -151,4 +151,4 @@ Leftover test GUIs: `Testing`, `BagGUITEST`.
 - Badge awards (referenced, commented)
 - Redeem codes (flag + APIs + template field; **no UI**)
 - Additional tool tiers beyond Willow
-- Enabled sites other than 1, 10, 11
+- Enabled sites other than Coconana (`DUNGEON11`), Buzzing Plains (`DUNGEON5x5`), and Blackthorn (`DUNGEON10`)

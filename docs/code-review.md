@@ -1,19 +1,92 @@
 # Gachamon Legends — Code review
 
-Date: 2026-08-28 (follow-up)  
-Prior pass: 2026-08-26 / 2026-08-27.  
+Date: 2026-08-29  
+Prior pass: 2026-08-26 / 2026-08-27 / 2026-08-28.  
 Scope: Studio DataModel on **Gachamon Legends (Development)** (`136894937108297`).  
-Method: re-read live gameplay scripts after the 2026-08-27/28 Studio pass. Disabled generators and workspace Animate scripts were not line-audited.
-
-Place version notes and `ServerScriptService.Draft.DevLog` (2026-08-28) list the same fixes.
+Method: re-read live gameplay scripts, Destinations tree, hub gates, ScreenGuis, and disabled folders. Confirmed no Rojo; Studio remains source of truth.
 
 ---
 
 ## Summary
 
-The 2026-08-26 P0 list is **closed** on the dev place: sell, respawn re-init, harvest remote, shop snapshot, DeductCoins, redeem template, loading GUI, HUD parent, and collect-vs-node. Teleport, session boot, and economy transactions are in decent shape for testers on **Coconana**, **Buzzing Plains**, and **Blackthorn**.
+The live loop is still in decent shape: ProfileStore boot, `TryCollect`, sell-all, Willow gear, and teleport through `TeleportModule`. Do **not** add Rojo, Knit, or a client app module.
 
-Highest leftover risks are **leftover dungeon doors** (`DUNGEON8`) that still teleport but do not save location, and **world/script archive**. Buzzing Plains hub walk-in is playtested.
+The place is still carrying a second game: bake pipeline, leftover `DUNGEON8`, ~27k workspace-root room templates, `Avo's Workspace`, Old Map, and test GUIs. That is the main simplification. After archive, the remaining bugs are small and local.
+
+2026-08-29 refactor (dev place): ToolModule requires restored on shop + harvest; join `SetLocation(HOME)`; KEYS on teleports; SSS folders (`Teleport`, `Collect`, `Economy`, `World`); purchase/repair remotes on `PlayerGearManager`; unused ToolModule durability APIs trimmed; FTUE waits on inventory/location. `Queue` stays.
+
+Playtest still needed: store buy, axe harvest, Buzzing Plains loading once, FTUE. Pass 5 (Depart Level N / spawn dates) not done.
+
+---
+
+## What to do, in order
+
+Do not interleave new features with this list. Archive first so later edits are not fighting dead instances.
+
+### 1. Archive (simplification, not a rewrite)
+
+Delete or move to an unpublished archive place. Keep Disabled scripts out of the published DataModel.
+
+| Remove | Why |
+|---|---|
+| `Workspace.Destinations.DUNGEON8` (~3.1k descendants + hub door at `-236, 39, 21`) | Doors still fire; `SetLocation` drops `DUNGEON8`. |
+| Workspace-root `CoconanaOasisTemplate*` (~15 models, ~27k descendants) and `BuzzingSavannahTemplate` | Bake clones sitting in the live world. `ServerStorage.SiteModelTemplates` already holds the bake set. |
+| `Workspace.Avo's Workspace` (~2k) | Art sandbox. |
+| `Workspace.GeneratedLevels`, `Workspace.TorchTest` (3) | Leftover. |
+| `ServerStorage.Old Map` (~4.8k) | Unused. |
+| `ServerScriptService.LevelGeneration` (all Disabled; v3 still tagged `DungeonId=DUNGEON14`) | Runtime gen is out of product. Bake belongs in a Studio-only place. |
+| `ServerScriptService.Draft` (`Draft` requires missing `CollectibleSpawner` / `LevelGenerator`) | Keep a copy of `DevLog` text in git if needed, then delete. |
+| `ServerScriptService.Utilities.PlayerBarrier` | Disabled; `ReplicatedFirst.PlayerBarrier` does not exist. |
+| `StarterGui.Testing` (Enabled=false), **`StarterGui.BagGUITEST` (Enabled=true)** | Test UI. BagGUITEST clones to every player today. |
+| `StarterGui.ScreenOverlayNEW` | Enabled=false, no owner script. Delete unless the in-dungeon HUD is next. |
+| Hub art for Chimstone / Willoria / Spicy Savannah; duplicate `BlackthornMountainEntrance` | Unenabled survey-trip models. |
+| Unused: `ReplicatedStorage.Queue`; leftover `ToolModule` APIs (`HarvestWithTool`, `CheckDurability`, `GetHarvestableItems`, `GetHarvestTime`, `GetToolsByTier` / `ByType`, `GetToolIdByName`, `GetUsableToolsForItemTier`) | `ToolModule` itself is live (collect, shop, repair, gear UI). `MaterialReplenishModule` requires it but does not call it — harvest goes `TryCollect` → `PlayerInventoryManager.CanPlayerHarvestItem` → `CanToolHarvestItem`. Drop the unused require and the unused durability APIs only. |
+| Commented level/XP/badge/`AnalyticsModule` in `PlayerDataInit` + `PLAYER_LEVEL_DEBUG` / `BADGE_AWARD_DEBUG` / redeem flag until there is UI | Dead product surface. |
+
+`ServerStorage.SiteModelTemplates` (~36k) does **not** replicate. Keep it only if you still bake in this place; otherwise move it with LevelGeneration.
+
+### 2. Close leftover play bugs
+
+| Issue | Where | Fix |
+|---|---|---|
+| Leftover doors still move you | `SiteTeleportController` | Before `TeleportPlayerToRoom`, require `DestinationConfig.KEYS[dungeonId]`. Then delete `DUNGEON8`. |
+| Stale `Location` after rejoin / death | `PlayerDataInit` | Always spawn at hub. On session start, `SetLocation(HOME)` unless you add restore-to-dungeon. Today a leftover `DUNGEON5x5` location makes hub→Buzzing Plains skip the loading screen (`GetLocation == dungeonId`) and finishes Journey FTUE without leaving hub this session. |
+| `CharacterAdded` forces hub HUD | `SiteTeleportController` fires `EnteredRoom(nil, nil)`; `CameraTransitionControl` also sets `OnSite = false` | Fine once Location is hub-on-join. Do not also teleport-on-respawn into a dungeon. |
+| `BagGUITEST` Enabled | `StarterGui` | Delete. |
+| `GetStoreName` can return nil | `PlayerDataInit` | Kick / fallback to development store. Never `ProfileStore.New(nil, …)`. |
+| `CanToolHarvestItem` indexes `TOOLS[toolId]` after a truthy unknown string | `ToolModule` | `if not TOOLS[toolId] then return false`. |
+| `AddCoins` has no floor | `PlayerDataManager` | Reject non-positive / NaN the same way `DeductCoins` does. |
+| Spawn ignores availability dates | `GetItemListByType` | Filter with `isItemAvailable`. Codex already does. |
+| FTUE forage/sell `print` + `task.wait(3)` | stage `HandleAsync` | Bind inventory/location events; drop the print. Journey poll is quieter but the same shape. |
+| `RestorePlayerData` writes `known`/`recent` | `ItemCatalogModule` | Dead; live path is `UpdatePlayerData` with `Known`/`Recent`. Delete or align. |
+| `getToolIdFromPlayerToolId` nil-indexes | `PlayerGearManager` | Unused today; delete or guard. |
+
+### 3. Naming and config (stop enabling the wrong folder)
+
+| Key | Folder | UI “Level N” | Display name | Hub `ToRoom` |
+|---|---|---|---|---|
+| `DUNGEON11` | 11 | Level 1 | Coconana Oasis | `4_2` S — `Room_4_2` exists; playtest walk-in |
+| `DUNGEON5x5` | 5x5 | Level 3 | Buzzing Plains | `5_3` S — playtested |
+| `DUNGEON10` | 10 | Level 10 | Blackthorn Mountain | `10_5` S — hub marker at Y≈65 |
+
+Either make Description match the folder, or stop showing “Level N” and show the name only. `GetDestinationList` sorts by the first digits in the key (`5`, `10`, `11`), so Depart order is Buzzing Plains → Blackthorn → Coconana.
+
+### 4. Product gaps (do not start these until 1–3)
+
+- Runtime maze gen: keep off. Pre-baked rooms are the game.
+- Tool ladder: config has 5 tiers + unused types (Sickle, Knife, Hammer); live tools are three Willow items. Either ship tier 2 or strip the unused config.
+- Redeem codes: `REDEEM_CODES_ENABLED = true` and APIs exist; **no UI**. Turn the flag off or ship the UI.
+- `ScreenOverlayNEW`: health / compass / alerts / quick slots. `DamageSystem` already applies tagged hazard damage to Humanoid; nothing drives this HUD.
+- Two durability models: live wear is `Damage` 0–100 via `DamageEquippedTool`. Collect uses `ToolModule.CanToolHarvestItem`. `ToolConfig.TIERS[].Durability` and `HarvestWithTool` / `CheckDurability` are unused.
+
+---
+
+## Do not do
+
+- Rojo / Wally / Knit / a single client “app” module. Scripts are instance-coupled (tags, doorway attributes, GUI prefabs). MCP + Studio is the edit path.
+- Re-enable `DungeonMaterializerv3` in a published place (it is Studio-gated, but attributes still say `DUNGEON14`).
+- Map `Workspace` into git.
+- Expose `PlayerInventoryManager.AddItem` on a remote. Collect stays on `TryCollect`.
 
 ---
 
@@ -42,78 +115,18 @@ Highest leftover risks are **leftover dungeon doors** (`DUNGEON8`) that still te
 
 ---
 
-## Remaining P0
-
-None for Coconana / Buzzing Plains / Blackthorn testers.
-
-`GetStoreName()` still returns **nil** on an unknown `PlaceId` (`PlayerDataInit`), which would make `ProfileStore.New(nil, …)` fail. Only hits if this place id is not development / testers / live.
-
----
-
-## Remaining P1
-
-### Sites / teleport
-
-| Issue | Where | Notes |
-|---|---|---|
-| `IsEntry` and `IsExit` both home | `SiteTeleportController` | In-maze entry/exit markers send you HOME. Hub enter is a **non-**`IsEntry` doorway with `ToRoom` / `ToDoorDirection`. Document on markers. |
-| Destinations button Studio-only | `DepartGuiController` | Intentional test skip. Production enter is hub `DungeonEntryDoorway`. |
-| Site id vs “Level N” | `DestinationConfig` | DUNGEON11 = “Level 1”, DUNGEON5x5 = “Level 3”, DUNGEON10 = “Level 10”. |
-| Leftover doors still move you | `DUNGEON8` tagged triggers | `SetLocation` ignores unknown keys. Character teleports; next join thinks HOME. Replenish no longer stocks that folder. |
-
-### Economy / catalog / tools
-
-| Issue | Where | Notes |
-|---|---|---|
-| Spawn ignores availability dates | `GetItemListByType` | Codex uses `isItemAvailable`; spawn does not. `WOOD_1` is in window again (`2027-11-30`); this can recur when a date lapses. |
-| `RestorePlayerData` uses `known`/`recent` | `ItemCatalogModule` | Live path uses `Known`/`Recent`. Unused today (`UpdatePlayerData`). |
-| Two durability models | `ToolConfig.Durability` vs `Damage` 0–100 | Repair is `5 * Tier * 5` coins for 5 damage. Config 30/60/… unused. Live wear is `DamageEquippedTool`. |
-| `CanToolHarvestItem` nil-index | `ToolModule` | Guards `not toolId` but a **unknown string** still does `TOOLS[toolId].Type`. |
-| `AddCoins` unsigned | `PlayerDataManager` | Negative amount is a deduct with no floor. |
-| `AddItem` still tool-only | `PlayerInventoryManager` | Gameplay must use `TryCollect`. Do not add a remote on `AddItem`. |
-
-### Client / FTUE
-
-| Issue | Where | Notes |
-|---|---|---|
-| FTUE forage/sell/journey poll + print | Stage `HandleAsync` | `while … print … task.wait(3)` until collect/sell/leave hub. Lifecycle cancel exists; log spam remains. |
-| `ScreenOverlayNEW` | `StarterGui` | Health/compass/alerts/quick slots — no owner script. |
-| Studio vs live ProfileStore | `GetStoreName` | Opening this place file under live `PlaceId` in Studio **warns** but still uses the live store. |
-
----
-
-## Remaining P2 (do not expand)
-
-- Disabled: `DungeonMaterializer` V1/V2/v3/ORIGINAL, `RoomFurnisherOLD`, `Draft.*`, `PlayerBarrier`.
-- World: leftover `DUNGEON8`, `Avo's Workspace`, Workspace-root oasis templates, `ServerStorage.Old Map`, hub survey art for unenabled sites.
-- UI: `Testing`, `BagGUITEST`.
-- Commented: levels/XP, badges, old analytics, loading-screen boot in `ReplicatedFirst.Start`.
-- Typos: `PROFILE_STORE_DEBUB`, `REDEEM_CODES_MAX_LENGHT`.
-- `WorkspaceSetup` hard-coded fog CFrame.
-- Water Block scripts duplicated across Map, templates, and rooms.
-- `ToolModule.HarvestWithTool` / `CheckDurability` unused.
-
----
-
 ## What is in decent shape
 
 - ProfileStore session lock + reconcile + GDPR `AddUserId` + `RedeemCodes` on template
 - Session: `CharacterAdded` is character-only; FTUE once per join; client waits on `loaded`
-- `DestinationConfig.KEYS` enable list (`HOME`, `DUNGEON10`, `DUNGEON11`, `DUNGEON5x5`) + Depart sort
+- `DestinationConfig.KEYS` enable list (`HOME`, `DUNGEON10`, `DUNGEON11`, `DUNGEON5x5`)
 - `TeleportModule` owns PivotTo + one loading GUI + `SetLocation`; unstick on HOME→entry
-- Hub enter: untagged/`ToRoom` doorway (not Destinations menu)
+- Hub enter: `Destinations.<KEY>.DungeonEntryDoorway` CFramed onto survey-trip gates (Buzzing Plains playtested)
 - `TryCollect` + KEYS-only replenish
 - `DeductCoins` / `SellAll` stack pricing / shop `GetPlayerData` + `GetToolInfo`
-- HUD LocalScripts on `StarterPlayerScripts`; HUD GUIs persist across respawn
+- HUD LocalScripts on `StarterPlayerScripts`; HUD ScreenGuis `ResetOnSpawn = false`
 - Door debounce via `task.delay`
 
----
+Intentional, not bugs: Destinations button is Studio-only; in-maze `IsEntry` / `IsExit` both send you HOME.
 
-## Suggested next engineering
-
-1. **Archive** — Draft, old materializers, Old Map, Avo’s Workspace, unused destination folders, test GUIs. Leftover tagged **doors** in `DUNGEON8` still teleport.
-2. Align site id / folder / “Level N”, or document the mapping next to `KEYS`.
-3. Filter spawn with `isItemAvailable` (same dates as catalog).
-4. `CanToolHarvestItem` nil-safe; pick one durability model; `AddCoins` reject negatives.
-5. Quiet or event-drive FTUE forage/sell waits.
-6. Confirm Coconana (`DUNGEON11`) hub walk-in after the doorway was snapped onto `CoconanaOasisEntrance`.
+Also: opening this place file under live `PlaceId` in Studio **warns** but still uses the live ProfileStore. Typos `PROFILE_STORE_DEBUB` / `REDEEM_CODES_MAX_LENGHT` and `WorkspaceSetup` hard-coded fog CFrame can die with the archive pass.
