@@ -1,7 +1,7 @@
 # Gachamon Legends — Code review
 
-Date: 2026-08-29  
-Prior pass: 2026-08-26 / 2026-08-27 / 2026-08-28.  
+Date: 2026-08-30  
+Prior pass: 2026-08-26 / 2026-08-27 / 2026-08-28 / 2026-08-29.  
 Scope: Studio DataModel on **Gachamon Legends (Development)** (`136894937108297`).  
 Method: re-read live gameplay scripts, Destinations tree, hub gates, ScreenGuis, and disabled folders. Confirmed no Rojo; Studio remains source of truth.
 
@@ -11,11 +11,13 @@ Method: re-read live gameplay scripts, Destinations tree, hub gates, ScreenGuis,
 
 The live loop is still in decent shape: ProfileStore boot, `TryCollect`, sell-all, Willow gear, and teleport through `TeleportModule`. Do **not** add Rojo, Knit, or a client app module.
 
-The place is still carrying a second game: bake pipeline, leftover `DUNGEON8`, ~27k workspace-root room templates, `Avo's Workspace`, Old Map, and test GUIs. That is the main simplification. After archive, the remaining bugs are small and local.
+The place is still carrying Studio-only weight: bake pipeline, ~27k workspace-root room templates, `Avo's Workspace`, and test GUIs. `DUNGEON8`, `BagGUITEST`, and `Old Map` are gone. After archive, remaining bugs are small and local.
 
-2026-08-29 refactor (dev place): ToolModule requires restored on shop + harvest; join `SetLocation(HOME)`; KEYS on teleports; SSS folders (`Teleport`, `Collect`, `Economy`, `World`); purchase/repair remotes on `PlayerGearManager`; unused ToolModule durability APIs trimmed; FTUE waits on inventory/location. `Queue` stays.
+2026-08-30: `DungeonMaterializerv3` Command Bar locals; `templateSet` is a 15-layout prefix (`CoconanaOasisTemplate`) or a single 4-door model (`BuzzingSavannahTemplate`, unused doorways hidden). Bake working. Instance attributes cleared.
 
-Playtest still needed: store buy, axe harvest, Buzzing Plains loading once, FTUE. Pass 5 (Depart Level N / spawn dates) not done.
+2026-08-29 refactor (dev place): ToolModule requires restored on shop + harvest; join `SetLocation(HOME)`; KEYS on teleports; SSS folders (`Teleport`, `Collect`, `Economy`, `World`); purchase/repair remotes on `PlayerGearManager`; unused ToolModule durability APIs trimmed; FTUE waits on inventory/location. `Queue` stays (`Notifications`).
+
+Playtest still needed: store buy, axe harvest, Buzzing Plains loading once, FTUE. Pass 5 (Depart Level N) not done.
 
 ---
 
@@ -29,37 +31,25 @@ Delete or move to an unpublished archive place. Keep Disabled scripts out of the
 
 | Remove | Why |
 |---|---|
-| `Workspace.Destinations.DUNGEON8` (~3.1k descendants + hub door at `-236, 39, 21`) | Doors still fire; `SetLocation` drops `DUNGEON8`. |
-| Workspace-root `CoconanaOasisTemplate*` (~15 models, ~27k descendants) and `BuzzingSavannahTemplate` | Bake clones sitting in the live world. `ServerStorage.SiteModelTemplates` already holds the bake set. |
+| Workspace-root `CoconanaOasisTemplate*` (~15 models) and `BuzzingSavannahTemplate` | Bake clones sitting in the live world (tagged doors). `ServerStorage.SiteModelTemplates` is the bake set. |
 | `Workspace.Avo's Workspace` (~2k) | Art sandbox. |
-| `Workspace.GeneratedLevels`, `Workspace.TorchTest` (3) | Leftover. |
-| `ServerStorage.Old Map` (~4.8k) | Unused. |
-| `ServerScriptService.LevelGeneration` (all Disabled; v3 still tagged `DungeonId=DUNGEON14`) | Runtime gen is out of product. Bake belongs in a Studio-only place. |
-| `ServerScriptService.Draft` (`Draft` requires missing `CollectibleSpawner` / `LevelGenerator`) | Keep a copy of `DevLog` text in git if needed, then delete. |
-| `ServerScriptService.Utilities.PlayerBarrier` | Disabled; `ReplicatedFirst.PlayerBarrier` does not exist. |
-| `StarterGui.Testing` (Enabled=false), **`StarterGui.BagGUITEST` (Enabled=true)** | Test UI. BagGUITEST clones to every player today. |
+| `Workspace.TorchTest` (3) + `StarterPack.TorchTest` | Leftover. Keep `GeneratedLevels.START` if you still bake here. |
+| `ServerScriptService.Draft` (only `DevLog` left) | Keep a copy of `DevLog` text in git if needed, then delete. |
+| `StarterGui.Testing` (Enabled=false) | Test UI. |
 | `StarterGui.ScreenOverlayNEW` | Enabled=false, no owner script. Delete unless the in-dungeon HUD is next. |
 | Hub art for Chimstone / Willoria / Spicy Savannah; duplicate `BlackthornMountainEntrance` | Unenabled survey-trip models. |
-| Unused: `ReplicatedStorage.Queue`; leftover `ToolModule` APIs (`HarvestWithTool`, `CheckDurability`, `GetHarvestableItems`, `GetHarvestTime`, `GetToolsByTier` / `ByType`, `GetToolIdByName`, `GetUsableToolsForItemTier`) | `ToolModule` itself is live (collect, shop, repair, gear UI). `MaterialReplenishModule` requires it but does not call it — harvest goes `TryCollect` → `PlayerInventoryManager.CanPlayerHarvestItem` → `CanToolHarvestItem`. Drop the unused require and the unused durability APIs only. |
-| Commented level/XP/badge/`AnalyticsModule` in `PlayerDataInit` + `PLAYER_LEVEL_DEBUG` / `BADGE_AWARD_DEBUG` / redeem flag until there is UI | Dead product surface. |
+| Unused `ToolConfig.TIERS` Durability / SpeedFactor; Sickle / Knife / Hammer types | Live wear is `Damage` 0–100. `GetToolInfo` aliases `GetToolById`. |
+| Commented level/XP/badge/`AnalyticsModule` in `PlayerDataInit` + `PLAYER_LEVEL_DEBUG` / `BADGE_AWARD_DEBUG` | Dead product surface. |
 
-`ServerStorage.SiteModelTemplates` (~36k) does **not** replicate. Keep it only if you still bake in this place; otherwise move it with LevelGeneration.
+`ServerStorage.SiteModelTemplates` (~36k) does **not** replicate. Keep it while baking in this place; otherwise move it with LevelGeneration.
 
 ### 2. Close leftover play bugs
 
 | Issue | Where | Fix |
 |---|---|---|
-| Leftover doors still move you | `SiteTeleportController` | Before `TeleportPlayerToRoom`, require `DestinationConfig.KEYS[dungeonId]`. Then delete `DUNGEON8`. |
-| Stale `Location` after rejoin / death | `PlayerDataInit` | Always spawn at hub. On session start, `SetLocation(HOME)` unless you add restore-to-dungeon. Today a leftover `DUNGEON5x5` location makes hub→Buzzing Plains skip the loading screen (`GetLocation == dungeonId`) and finishes Journey FTUE without leaving hub this session. |
-| `CharacterAdded` forces hub HUD | `SiteTeleportController` fires `EnteredRoom(nil, nil)`; `CameraTransitionControl` also sets `OnSite = false` | Fine once Location is hub-on-join. Do not also teleport-on-respawn into a dungeon. |
-| `BagGUITEST` Enabled | `StarterGui` | Delete. |
-| `GetStoreName` can return nil | `PlayerDataInit` | Kick / fallback to development store. Never `ProfileStore.New(nil, …)`. |
-| `CanToolHarvestItem` indexes `TOOLS[toolId]` after a truthy unknown string | `ToolModule` | `if not TOOLS[toolId] then return false`. |
-| `AddCoins` has no floor | `PlayerDataManager` | Reject non-positive / NaN the same way `DeductCoins` does. |
-| Spawn ignores availability dates | `GetItemListByType` | Filter with `isItemAvailable`. Codex already does. |
-| FTUE forage/sell `print` + `task.wait(3)` | stage `HandleAsync` | Bind inventory/location events; drop the print. Journey poll is quieter but the same shape. |
-| `RestorePlayerData` writes `known`/`recent` | `ItemCatalogModule` | Dead; live path is `UpdatePlayerData` with `Known`/`Recent`. Delete or align. |
-| `getToolIdFromPlayerToolId` nil-indexes | `PlayerGearManager` | Unused today; delete or guard. |
+| Workspace-root bake clones still tagged | `CoconanaOasisTemplate*` / `BuzzingSavannahTemplate` | Park or delete. `KEYS` already blocks unknown `DungeonId`; leftover markers are still live instances. |
+| `CharacterAdded` forces hub HUD | `SiteTeleportController` fires `EnteredRoom(nil, nil)`; `CameraTransitionControl` also sets `OnSite = false` | Fine with Location hub-on-join. Do not also teleport-on-respawn into a dungeon. |
+| `ScreenOverlayNEW` unwired | `StarterGui` | Delete or ship a controller. |
 
 ### 3. Naming and config (stop enabling the wrong folder)
 
@@ -84,7 +74,7 @@ Either make Description match the folder, or stop showing “Level N” and show
 ## Do not do
 
 - Rojo / Wally / Knit / a single client “app” module. Scripts are instance-coupled (tags, doorway attributes, GUI prefabs). MCP + Studio is the edit path.
-- Re-enable `DungeonMaterializerv3` in a published place (it is Studio-gated, but attributes still say `DUNGEON14`).
+- Re-enable `DungeonMaterializerv3` in a published place (Studio-gated; run from Command Bar only).
 - Map `Workspace` into git.
 - Expose `PlayerInventoryManager.AddItem` on a remote. Collect stays on `TryCollect`.
 
@@ -112,6 +102,12 @@ Either make Description match the folder, or stop showing “Level N” and show
 | P1 replenish leftover dungeons | Stock only `DestinationConfig.KEYS` folders. |
 | Hub `DUNGEON1` doorway `DungeonId` | Folder removed. Buzzing Plains is `DUNGEON5x5`; hub `DungeonId` `DUNGEON5x5`, `ToRoom` `5_3` `S`. |
 | `WOOD_1` expired 2025-11-30 | Dates set to start `2025-01-01` / end `2027-11-30`. |
+| Leftover `DUNGEON8` | Destination folder gone. |
+| `BagGUITEST` Enabled | GUI gone. |
+| Stale `Location` on join | `PlayerDataInit` `SetLocation("HOME")`. |
+| Doors ignore `KEYS` | `SiteTeleportController` returns if `DungeonId` not in `KEYS`. |
+| FTUE forage print-poll | Waits on inventory / location signals. |
+| v3 bake attributes | Cleared. Knobs are Command Bar locals. `BuzzingSavannahTemplate` supported. |
 
 ---
 
@@ -127,6 +123,6 @@ Either make Description match the folder, or stop showing “Level N” and show
 - HUD LocalScripts on `StarterPlayerScripts`; HUD ScreenGuis `ResetOnSpawn = false`
 - Door debounce via `task.delay`
 
-Intentional, not bugs: Destinations button is Studio-only; in-maze `IsEntry` / `IsExit` both send you HOME.
+Intentional, not bugs: Destinations button is Studio-only. In-maze `IsExit` → spawn (join facing); `IsEntry` → just outside that site’s hub gate. Both playtested 2026-08-30.
 
-Also: opening this place file under live `PlaceId` in Studio **warns** but still uses the live ProfileStore. Typos `PROFILE_STORE_DEBUB` / `REDEEM_CODES_MAX_LENGHT` and `WorkspaceSetup` hard-coded fog CFrame can die with the archive pass.
+Also: opening this place file under live `PlaceId` in Studio **warns** but still uses the live ProfileStore. `WorkspaceSetup` hard-coded fog CFrame can die with the archive pass.

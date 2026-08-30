@@ -1,6 +1,6 @@
 # Gachamon Legends — Product
 
-Last updated: 2026-08-29  
+Last updated: 2026-08-30  
 Place under review: **Gachamon Legends (Development)** (`136894937108297`)
 
 This document describes what the game is, who it is for, and what a session looks like. Implementation lives in Roblox Studio, not in this git repo.
@@ -36,7 +36,7 @@ Walk speed is 20 in published servers and 28 in Studio.
 3. **Sell** the bag to Benji (`Sell All Collected Samples`) for coins.
 4. **Gear** — buy / equip / repair Willow tools at the traveling blacksmith.
 5. **Depart** to a site by walking a hub `DungeonEntryDoorway` (Studio also has a Destinations debug picker). One `LoadingScreen` on HOME ↔ site. Room-to-room uses a short camera fade only.
-6. **Explore** rooms, collect, avoid hazards, leave via entry/exit door or Go Home.
+6. **Explore** rooms, collect, avoid hazards. The in-maze **entry** door returns you just outside that site’s hub gate. The **exit** door and Go Home return you to hub spawn.
 7. **Codex** records known and recent items.
 
 New-player FTUE is linear:
@@ -87,7 +87,7 @@ Config enable list is `DestinationConfig.KEYS`. Journeys shown in Depart:
 
 Folder id, marketing name, and “Level N” label do **not** line up (site 11 is “Level 1”; site `DUNGEON5x5` is “Level 3”). See [backlog](backlog.md).
 
-Baked but **not** enabled: `DUNGEON8`. Live dungeon generation (`DungeonMaterializer*`) is disabled; mazes are pre-placed rooms.
+Live dungeon generation is disabled; mazes are pre-placed rooms. Studio bake (`DungeonMaterializerv3`) is Command Bar only: `CoconanaOasisTemplate` is a 15-layout set, `BuzzingSavannahTemplate` is a single all-four-doors room (unused doorways hidden at bake).
 
 The Destinations button in Depart is **Studio-only** (test skip). Testers/live enter a site by walking the hub `DungeonEntryDoorway` volume. Survey-trip models are art around those volumes. Coconana, Buzzing Plains, and Blackthorn walk-ins are on. Buzzing Plains hub door lands on `Room_5_3` south (`IsEntry`).
 
@@ -102,7 +102,7 @@ ProfileStore session per user. Template:
 - `Inventory` (item id → count)
 - `KnownItems` / `RecentItems` (codex)
 - `Announcements`
-- `RedeemCodes` (empty table; flag on, no UI)
+- `RedeemCodes` (empty table; flag off, no UI)
 - `MusicMuted` (default false; settings toggle)
 - `Gear`
 - `Location` (`HOME` or a dungeon key)
@@ -126,7 +126,7 @@ ProfileStore session per user. Template:
 | `LoadingScreen` | Maze load overlay (HOME ↔ site; trip name on the GUI) |
 | `ScreenOverlayNEW` | In-dungeon HUD (health, compass, alerts, quick slots) — present, not fully wired in this review |
 
-Leftover test GUIs: `Testing`, `BagGUITEST`.
+Leftover test GUI: `Testing` (Enabled=false). `ScreenOverlayNEW` is also Enabled=false.
 
 ---
 
@@ -149,6 +149,6 @@ Leftover test GUIs: `Testing`, `BagGUITEST`.
 - Procedural dungeon generation at runtime (scripts exist, all Disabled)
 - Player levels and XP
 - Badge awards (referenced, commented)
-- Redeem codes (flag + APIs + template field; **no UI**)
+- Redeem codes (template field + APIs; flag off; **no UI**)
 - Additional tool tiers beyond Willow
 - Enabled sites other than Coconana (`DUNGEON11`), Buzzing Plains (`DUNGEON5x5`), and Blackthorn (`DUNGEON10`)

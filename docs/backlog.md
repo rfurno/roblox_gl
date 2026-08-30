@@ -1,11 +1,11 @@
 # Gachamon Legends — Backlog
 
-Last updated: 2026-08-29 (SSS folders, Location HOME on join, FTUE waits)  
-Items below were found while connecting Studio MCP, mapping the tree, fixing Depart / `KEYS`, and simplifying teleport. Studio DevLog (`ServerScriptService.Draft.DevLog`) is the in-place version comment. Review pass 2026-08-29 confirmed the list below against the live DataModel.
+Last updated: 2026-08-30 (Savannah bake + live DataModel pass)  
+Items below were found while connecting Studio MCP, mapping the tree, fixing Depart / `KEYS`, and simplifying teleport. Studio DevLog (`ServerScriptService.Draft.DevLog`) is the in-place version comment.
 
 Priority: **P0** play-breaking or data-wrong · **P1** wrong UX / easy to regress · **P2** dead code / naming / cleanup.
 
-Status **Fixed (dev place)** means changed in the open Studio session this week, not necessarily published.
+Status **Fixed (dev place)** means changed in the open Studio session, not necessarily published.
 
 ---
 
@@ -13,55 +13,34 @@ Status **Fixed (dev place)** means changed in the open Studio session this week,
 
 | Item | Notes |
 |---|---|
+| `DungeonMaterializerv3` two template kinds | Command Bar locals only (no script attributes). `CoconanaOasisTemplate` = 15-layout set. `BuzzingSavannahTemplate` = single all-four-doors model; unused doorways hidden. Bake confirmed working. Keep Disabled. |
+| v3 instance attributes removed | Stale `DungeonId=DUNGEON14` / 4×4 knobs were never read from Command Bar. |
 | `DestinationConfig.KEYS` cleaned | Only `HOME`, `DUNGEON10`, `DUNGEON11`, `DUNGEON5x5` |
-| Depart list follows `KEYS` and sorts 10 → 11 → 14 | Removed stale commented Coconana-as-DUNGEON1 block |
-| Buzzing Plains is `DUNGEON5x5` | Replaced `DUNGEON14`. Hub trigger snapped to old DUNGEON14 gate CFrame; `ToRoom` `5_3` `S`; landing `Room_5_3` south `IsEntry`. Profile `Location` `DUNGEON1`/`DUNGEON14` → `DUNGEON5x5`. Hub walk-in playtested 2026-08-28. |
-| Depart no longer sets `OnSite` when opening the picker | `OnSite` comes from `EnteredRoom` |
-| Maze loading not on room-to-room | `SiteTeleportController` no longer always `"show"` |
-| Maze loading on HOME → dungeon | `TeleportModule` passes site **name** so `StarterGui.LoadingScreen` enables |
-| Teleport centralized | `TeleportModule` owns move + loading + `SetLocation`; door script only routes |
-| Door `Touched` debounce | Always clears after 0.5s (early `return` used to leave the door stuck) |
-| `SellAll` pays `price * count`; `Sale` remote deleted | DevLog 2026-08-27 |
-| `CharacterAdded` no longer re-Initialize / restack FTUE | Handshake via `GetPlayerData`; coin HUD pulls on spawn. DevLog 2026-08-27 |
-| `DeductCoins` refuses if broke; shop lookups nil-safe | `GetToolInfo` added. DevLog 2026-08-27 |
-| One `LoadingScreen` for HOME ↔ site; HOME→entry unstick | `LookVector * 3 + (0, 3, 0)`. DevLog 2026-08-27 |
-| `Template.RedeemCodes = {}`; redeem APIs init if missing | DevLog 2026-08-27 |
-| HUD LocalScripts → `StarterPlayerScripts`; GUIs `ResetOnSpawn = false` | Depart, bag, coins, gear, store, blacksmith, codex, settings, notifications, sound, music. DevLog 2026-08-27 |
-| Collect `TryCollect`: node + range + tool; leftover dungeons not stocked | DevLog 2026-08-27 |
-| `MusicMuted` persisted on profile | Settings load/save; music volume on play. DevLog 2026-08-28 |
-| `WOOD_1` dates refreshed | `AvailabilityEndDate = "2027-11-30"`. Spawn still does not filter dates. |
+| Buzzing Plains is `DUNGEON5x5` | Hub `ToRoom` `5_3` `S`; landing `Room_5_3` south `IsEntry`. Walk-in playtested 2026-08-28. |
+| Join `SetLocation(HOME)` | `PlayerDataInit` always writes HOME after profile load. |
+| Doors require `KEYS` | `SiteTeleportController` + `TeleportHandler` ignore unknown `DungeonId`. |
+| `DUNGEON8` removed | No leftover destination folder. |
+| `BagGUITEST` removed | `StarterGui.Testing` still exists, Enabled=false. |
+| `ServerStorage.Old Map` removed | |
+| FTUE waits on signals | Forage / sell / journey no longer print-poll. |
+| Teleport centralized | `TeleportModule` owns move + loading + `SetLocation` |
+| HUD LocalScripts → `StarterPlayerScripts` | Related ScreenGuis `ResetOnSpawn = false` |
+| Collect `TryCollect` | Node + range + tool; KEYS-only replenish |
+| `MusicMuted` persisted | |
 
 ---
 
-## P1 — teleport / loading / Depart
+## P1 — still open
 
-### `IsEntry` and `IsExit` both mean “go home”
+### In-maze `IsEntry` vs `IsExit` (playtested 2026-08-30)
 
-Walking into the dungeon **entry** from inside is an exit. That may be intended, but it is not documented on the markers. HOME→entry now unsticks like room-to-room; first-room collisions are less fragile but the dual meaning remains.
+- `IsExit` → hub `SpawnLocation`, facing the same way as join.
+- `IsEntry` → town side of that site’s hub `DungeonEntryDoorway` (not spawn).
+- Go Home still uses spawn.
 
 ### Depart Destinations button is Studio-only
 
-```lua
-destinationsButton.Visible = isStudio and not uiCoordinator.OnSite
-```
-
 Intentional test skip. Production enter is each site’s `DungeonEntryDoorway` `TeleportTrigger`.
-
-### Stale `Location` after rejoin
-
-Profile `Location` is written on teleport but **not reset on join**. Players always spawn at hub. If the last session left `Location = DUNGEON5x5`, walking the Buzzing Plains gate skips the loading screen (`GetLocation == dungeonId`) and Journey FTUE can complete without leaving hub this session. Reset to `HOME` on session start (or restore into the dungeon — do not leave it dangling).
-
-### `BagGUITEST` is Enabled
-
-`StarterGui.BagGUITEST` clones to every player. `Testing` and `ScreenOverlayNEW` are at least disabled.
-
-### Hub doors live under Destinations, not Map
-
-`Workspace.Destinations.DUNGEON5x5|10|11|8.DungeonEntryDoorway` are CFramed onto survey-trip gates. `DUNGEON8` hub volume at `(-236, 39, 21)` still teleports. `SiteTeleportController` does not check `KEYS`.
-
-### Workspace-root bake clones replicate
-
-~15 `CoconanaOasisTemplate*` models plus `BuzzingSavannahTemplate` sit at Workspace root (~27k descendants). They include tagged `DungeonDoorwayMarker`s. `ServerStorage.SiteModelTemplates` already has the bake set.
 
 ### Site numbering is inconsistent
 
@@ -71,67 +50,47 @@ Profile `Location` is written on teleport but **not reset on join**. Players alw
 | `DUNGEON5x5` | 5x5 | “Level 3” | Buzzing Plains |
 | `DUNGEON10` | 10 | “Level 10” | Blackthorn Mountain |
 
-Product says “sites 10, 11, and 14.” Players see “Level 1 / 3 / 10.” Easy to enable the wrong folder.
+`GetDestinationList` sorts by the first digits in the key (`5`, `10`, `11`), so Depart order is Buzzing Plains → Blackthorn → Coconana. Either match Description to the folder, or drop “Level N” and show the name only.
 
-### `SetLocation` silently drops unknown keys
+### Workspace-root bake clones replicate
 
-Doors in leftover `DUNGEON8` can still teleport the character (`DungeonId` attribute) but location will not save. Next join snaps thinking you are at HOME.
+~15 `CoconanaOasisTemplate*` models plus `BuzzingSavannahTemplate` sit at Workspace root. They include tagged `DungeonDoorwayMarker`s. `ServerStorage.SiteModelTemplates` is the bake set — keep that. Park or delete the Workspace copies so live doors cannot pick them up.
+
+### Hub doors live under Destinations, not Map
+
+`Workspace.Destinations.DUNGEON5x5|10|11.DungeonEntryDoorway` are CFramed onto survey-trip gates. Art and trigger stay in two trees.
 
 ---
 
-## P1 — economy / FTUE / client
-
-### FTUE forage handler busy-waits and prints forever
-
-```lua
-while PlayerInventoryManager.IsEmpty(player) do
-    print("Player hasn't harvested anything yet")
-    task.wait(3)
-end
-```
-
-Spam in the server log for every new player until first collect. Same polling style on Journey (`wait` until `Location ~= HOME`).
-
-### Collect grant path
-
-`PlayerInventoryAdd` remote is gone. Collect goes through `MaterialReplenishModule.TryCollect` (tagged part, live `MaterialItemId`, server range, tool). `AddItem` is still a tool-only grant — do not call it from a new remote. Leftover `DUNGEON8` nodes are no longer replenished (`KEYS` only).
-
-### Character-bound UI
-
-Moved to `StarterPlayerScripts` (2026-08-27). Related ScreenGuis `ResetOnSpawn = false`. `ScreenOverlayNEW` still has no owner script.
+## P1 — economy / client
 
 ### `ScreenOverlayNEW`
 
-In-dungeon HUD (health, compass, alerts, quick slots) exists in StarterGui; no controller in this pass was found that clearly drives it.
+In-dungeon HUD (health, compass, alerts, quick slots) exists in StarterGui; Enabled=false; no owner script.
+
+### Collect grant path
+
+`PlayerInventoryAdd` remote is gone. Collect goes through `MaterialReplenishModule.TryCollect`. `AddItem` is still a tool-only grant — do not call it from a new remote.
 
 ---
 
-## P2 — dead world and scripts
+## P2 — archive / cleanup (live DataModel, 2026-08-30)
 
-### Disabled / duplicate dungeon pipeline
+Do these before more bake/feature work if they get in the way. Do **not** delete `ServerStorage.SiteModelTemplates` or `Workspace.GeneratedLevels.START` while baking in this place.
 
-All Disabled: `DungeonMaterializer`, `V2`, `v3`, `v3ORIGINAL`. Also `RoomFurnisherOLD`. `Draft` (`Draft`, `TerrainExportImport`, `DevLog`) is still in `ServerScriptService`.
+| Remove or park | Why |
+|---|---|
+| Workspace-root `CoconanaOasisTemplate*` + `BuzzingSavannahTemplate` | Replicating bake clones with tagged doors. Source is ServerStorage. |
+| `Workspace.Avo's Workspace` (~2k descendants) | Art sandbox. |
+| `Workspace.TorchTest` (3) + `StarterPack.TorchTest` | Leftover tools. |
+| `StarterGui.Testing` | Enabled=false test UI. |
+| Hub art: Chimstone Ruins, Echoes of Willoria, Spicy Savannah; duplicate `BlackthornMountainEntrance` | Unenabled survey-trip models. |
+| `ServerScriptService.Draft` | Only `DevLog` left; copy text to git if you want it, then delete. |
+| Commented level/XP/badge/`AnalyticsModule` in `PlayerDataInit` | Dead product surface until there is UI. |
 
-### Leftover destinations
+Keep while baking here: `LevelGeneration.DungeonMaterializerv3` (+ ORIGINAL, `DungeonGenerator`, `RoomFurnisher`), `GeneratedLevels.START`, `SiteModelTemplates`. Move that whole bake kit to a Studio-only place if this place is what you publish.
 
-`Workspace.Destinations.DUNGEON8` (leftover, not in `KEYS`) plus doorway markers. Hub still has survey-trip art for Chimstone Ruins, Echoes of Willoria, Spicy Savannah.
-
-### Art sandboxes in the live tree
-
-- `Workspace.Avo's Workspace` (~172 instances)
-- Coconana oasis templates at **Workspace root** (not under Map or ServerStorage)
-- `ServerStorage.Old Map` (large)
-- `StarterGui.Testing`, `BagGUITEST`
-
-### Commented product systems
-
-Level/XP on `PlayerDataManager`, `PlayerLevelManager`, `BadgeHandler`, `AnalyticsModule` (except FTUE analytics). Config still has `PLAYER_LEVEL_DEBUG` / `BADGE_AWARD_DEBUG`.
-
-### Config typos / noise
-
-- `PROFILE_STORE_DEBUB`
-- `REDEEM_CODES_MAX_LENGHT`
-- `MazeLoadingScreenController` now only drives `LoadingScreen` (MazeLoadingGui leftover is destroyed)
+`ReplicatedStorage.Queue` stays — `Notifications` requires it.
 
 ---
 
@@ -139,29 +98,26 @@ Level/XP on `PlayerDataManager`, `PlayerLevelManager`, `BadgeHandler`, `Analytic
 
 | Expectation | Actual |
 |---|---|
-| Runtime-generated mazes | Pre-baked rooms; generators off |
+| Runtime-generated mazes | Pre-baked rooms; Command Bar bake only |
 | Full tool ladder (5 tiers in config) | Only Willow tier 1 items + 3 tools in ServerStorage |
-| Redeem codes | `Template` has `RedeemCodes = {}`; still no UI |
+| Redeem codes | Template field; flag off; no UI |
 | Player level | Commented out |
-| Non-Studio depart | Hub `DungeonEntryDoorway` volumes (Destinations menu is Studio-only) |
-| Buzzing Plains (`DUNGEON5x5`) playable | Hub walk-in playtested; lands `Room_5_3` south |
+| Non-Studio depart | Hub `DungeonEntryDoorway` volumes |
+| Buzzing Plains (`DUNGEON5x5`) playable | Hub walk-in playtested; Savannah **template** bake works; live site art is still the existing 5x5 rooms until you replace Destinations |
 | One loading treatment | One `LoadingScreen`; name is the trip title |
-| Sell uses inventory counts | `price * count` |
-| Clean enable list for sites | `KEYS` is now clean; world still contains `DUNGEON8` plus workspace-root templates |
-| `Location` persists across sessions | Written on teleport; not restored and not reset on join |
+| Clean enable list for sites | `KEYS` + Destinations folders match (10 / 11 / 5x5) |
+| `Location` on join | Reset to `HOME` |
 | In-dungeon HUD | `ScreenOverlayNEW` exists, Enabled=false, no controller |
 
 ---
 
 ## Suggested next engineering
 
-Passes 0–4 of the 2026-08-29 refactor are on the **dev place**: ToolModule requires restored, `Location` HOME on join, KEYS on doors, SSS folders, purchase/repair on `PlayerGearManager`, unused ToolModule APIs trimmed, FTUE waits on signals. `Queue` stays (Notifications). Bake pipeline stays.
+1. Park or delete Workspace-root bake clones and `Avo's Workspace` so tagged leftover doors cannot fire.
+2. Playtest store buy, axe harvest, Buzzing Plains walk-in (loading once), Go Home, FTUE forage→sell→journey.
+3. Playtest Coconana (`ToRoom` `4_2` S) and Blackthorn (`10_5` S, marker Y≈65) hub walk-ins.
+4. Align site id / folder / “Level N”, or drop Level N from Depart copy.
+5. If the Savannah bake should **replace** live `DUNGEON5x5`, move `GeneratedLevels` output into Destinations and retarget the hub `ToRoom` / `ToDoorDirection`.
+6. Keep `DungeonMaterializerv3` Disabled in published places.
 
-Still open:
-
-1. Playtest store buy, axe harvest, Buzzing Plains walk-in (loading once), Go Home, FTUE forage→sell→journey.
-2. Playtest Coconana (`ToRoom` `4_2` S) and Blackthorn (`10_5` S, marker Y≈65) hub walk-ins.
-3. Align site id / folder / “Level N”, or drop Level N from Depart copy. Filter spawn with `isItemAvailable`.
-4. Park workspace-root bake templates / Avo’s Workspace under a `_Studio` folder if they get in the way. Do not delete bake.
-
-Do not add Rojo. Do not re-enable dungeon generation in this place.
+Do not add Rojo. Do not re-enable dungeon generation at runtime.
