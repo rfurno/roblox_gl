@@ -1,6 +1,6 @@
 # Gachamon Legends — Product
 
-Last updated: 2026-08-30  
+Last updated: 2026-09-01  
 Place under review: **Gachamon Legends (Development)** (`136894937108297`)
 
 This document describes what the game is, who it is for, and what a session looks like. Implementation lives in Roblox Studio, not in this git repo.
@@ -55,7 +55,16 @@ Three harvest types, driven by `ItemConfig` + CollectionService tags:
 | Mining | Pickaxe | Ores (e.g. Copperpine) |
 | Excavating | Shovel | Chests, fossils |
 
-Rarity weights: Common 60%, Rare 30%, Epic 9.9%, Legendary 0.1%. Nodes restock on a 120s interval in **enabled** site folders only. Collect is server `TryCollect` (node + range + tool). Collect time and required tool come from item config.
+Rarity weights: Common 60%, Rare 30%, Epic 9.9%, Legendary 0.1%. Nodes restock on a 120s interval in **enabled** site folders only. Collect is server `TryCollect` (node + range + **equipped** tool). Collect time and required tool come from item config.
+
+The collect prompt’s object line shows the tool when one is required (`Requires Pickaxe`, `Requires Axe`, `Requires Shovel`). Bare-hands nodes leave that line empty. If the equipped tool cannot harvest:
+
+- The hold cancels immediately (no harvest wait or harvest sound).
+- The prompt flashes locally (`Need a Pickaxe` / `Equip an Axe` / `Repair your Shovel` / `Need a stronger Pickaxe`).
+- The node gets a local red highlight and a short tool-icon billboard.
+- Only `HARVEST_DENIED` plays. There is no HUD toast for a missing tool.
+
+`TOOL_BROKEN` is still a HUD toast (repair is not on the node). Benji / blacksmith / feedback prompts are unchanged.
 
 ---
 
@@ -69,7 +78,7 @@ Five tiers exist in config (Novice → Legendary) with durability and speed. Onl
 | `AXE_1` | Willow Axe | 100 |
 | `SHOVEL_1` | Willow Shovel | 10 |
 
-Tools live in `ServerStorage.Tools` and are cloned onto the player. Damage is 0–100 (100 = broken). Broken tools notify the client (`TOOL_BROKEN` / `TOOL_REQUIRED`).
+Tools live in `ServerStorage.Tools` and are cloned onto the player. Damage is 0–100 (100 = broken). A broken tool unequips and fires the `TOOL_BROKEN` HUD toast. Wrong-tool collect feedback is on the prompt and the node, not `TOOL_REQUIRED`.
 
 ---
 

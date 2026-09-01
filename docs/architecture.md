@@ -1,6 +1,6 @@
 # Gachamon Legends — Architecture
 
-Last updated: 2026-08-30 (tools, blacksmith repair, announcements ConfigService, Coconana `4_3`↔`3_3`)  
+Last updated: 2026-09-01 (collect prompt tool requirement + local deny feedback)  
 Source of truth: Roblox Studio place **Gachamon Legends (Development)**. Live/Alpha is `115297023432140`. This git repo holds documentation only; there is no Rojo/Knit tree.
 
 ---
@@ -75,9 +75,15 @@ On leave: inventory, catalog (known/recent), and gear are written back, then the
 
 Tagged parts in **enabled** destination folders (`KEYS`) get a weighted random item, a proximity prompt, and `MaterialItemId`. Hub FTUE `Forage1` is set up separately.
 
+`setPartActive` builds the prompt as `"Collect " .. item.Name` with `ObjectText` `Requires <tool type>` when `GetItemRequiredTool` is not `BareHands` (empty otherwise). Attribute `CollectPrompt = true` (Benji / blacksmith / feedback prompts do not set this). Style is custom `Example`. `PromptButtonHoldBegan` plays the harvest sound only if `CanPlayerHarvestItem` is true.
+
 Grant path is **`TryCollect(player, part)`**: part tagged, live `MaterialItemId`, server range (closest point vs `HumanoidRootPart`), equipped tool (or bare hands). Then bag, clear that node, wear tool, catalog. Neutral parts restock every 120 seconds.
 
+Wrong tool: `TryCollect` returns false, plays `HARVEST_DENIED`, and does **not** fire `AnnouncementRemote` / `TOOL_REQUIRED`. The client already showed the deny on the prompt and the part.
+
 `PlayerInventoryManager.AddItem` is still a tool-only grant used **after** `TryCollect`. Do not expose it on a remote.
+
+Do not flip shared prompt `ActionText` / `HoldDuration` / `Enabled` or `part.Color` per player. Deny UI is local only.
 
 ### Inventory / sell
 
@@ -163,6 +169,12 @@ If any suffix model exists, layout-set wins. Do not enable these scripts in a pu
 
 Controllers are **session-length** under `StarterPlayerScripts`: PlayerInitialSetup, UICoordinator, LocalDataController, camera, proximity skins, announcements, jump parts, feedback NPC, maze loading, **Depart, bag, coins, gear, store, blacksmith, codex, settings, notifications, sound, music**.
 
+Collect deny lives on the custom prompt path:
+
+- `CustomProximityPrompts` (`Example` skin). Collect `ObjectText` is 18px on a 168×88 billboard.
+- `CustomProximityPrompts.CollectHarvestClient` caches `GetPlayerGear`, evaluates `CanToolHarvestItem` against the **equipped** tool, cancels the hold with `InputHoldEnd`, and plays local deny (prompt shake/red copy, `Highlight` on the part, tool-icon `BillboardGui`). Copy: `Need a …` / `Equip a …` / `Repair your …` / `Need a stronger …`. Gear is refreshed while a collect prompt is shown.
+- `Notifications` still handles `TOOL_BROKEN`. `TOOL_REQUIRED` remains in `ClientConfiguration` but collect no longer fires it.
+
 `StarterCharacterScripts` has no HUD LocalScripts.
 
 `UICoordinator` is a tiny shared table (`OnSite`, `MusicMuted`, UI state enums). `MusicMuted` is loaded from / saved to the profile. `GuiState` BindableEvent refreshes Depart button visibility.
@@ -186,7 +198,7 @@ Controllers are **session-length** under `StarterPlayerScripts`: PlayerInitialSe
 | `GetPlayerGear`, `EquipToolRemote`, `PurchaseTool`, `CheckToolPurchase`, `RepairToolRemote`, `CheckToolRepair`, `IsToolEquipped` | gear shop |
 | `OpenBlacksmithUI` | S → C | Open repair UI |
 | `UpdateItemCatalog` | S → C | Codex |
-| `DisplayAnnouncement` / `AnnouncementRemote` | S → C | What’s New / toasts |
+| `DisplayAnnouncement` / `AnnouncementRemote` | S → C | What’s New / `TOOL_BROKEN` toast. Collect deny does not use this. |
 | `PlayClientSideSound` / `StopClientSideSound` | S → C | SFX |
 | `SetMusicMuted` | C → S | Persist music mute on profile |
 | `SettingsChanged` | Bindable | Apply mute to volume / icons |
@@ -289,6 +301,8 @@ Scripts are the same tree. Gameplay to copy after Dev edits:
 - `ReplicatedStorage.ToolModule`, `StarterPlayerScripts.StoreController`
 - `Economy.PlayerGearManager`, `StarterPlayerScripts.BlacksmithController`
 - `Announcements.AnnouncementModule`, `Data.PlayerDataManager`
+- `Collect.MaterialReplenishModule`
+- `StarterPlayerScripts.CustomProximityPrompts` (includes child `CollectHarvestClient`)
 
 Do **not** copy (or keep **Disabled**): `LevelGeneration.*`, `Draft.DevLog`.
 

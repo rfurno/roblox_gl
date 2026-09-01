@@ -8,5 +8,5 @@ Development place: `136894937108297` (Gachamon Legends — Development).
 |---|---|
 | [docs/product.md](docs/product.md) | What the game is, loop, sites, data, UI |
 | [docs/architecture.md](docs/architecture.md) | Services, remotes, teleport, collect, FTUE, Studio bake |
-| [docs/backlog.md](docs/backlog.md) | Working gaps (updated 2026-08-30, later same day) |
-| [docs/code-review.md](docs/code-review.md) | Studio review 2026-08-30: remaining archive, naming, product gaps |
+| [docs/backlog.md](docs/backlog.md) | Working gaps (updated 2026-09-01) |
+| [docs/code-review.md](docs/code-review.md) | Studio review 2026-09-01: remaining archive, naming, product gaps |

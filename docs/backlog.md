@@ -1,6 +1,6 @@
 # Gachamon Legends — Backlog
 
-Last updated: 2026-08-30 (tools, blacksmith, announcements, Coconana `4_3`)  
+Last updated: 2026-09-01 (collect prompt tool requirement + local deny)  
 Items below were found while connecting Studio MCP, mapping the tree, fixing Depart / `KEYS`, and simplifying teleport. Studio DevLog (`ServerScriptService.Draft.DevLog`) is the in-place version comment.
 
 Priority: **P0** play-breaking or data-wrong · **P1** wrong UX / easy to regress · **P2** dead code / naming / cleanup.
@@ -32,6 +32,7 @@ Status **Fixed (dev place)** means changed in the open Studio session, not neces
 | Blacksmith repair nil | `RepairToolRemote` always returns remaining `Damage`. UI nil-safe. Playtested. |
 | Coconana `4_3` north | Unpaired bake door. Added `Room_3_3` south. Playtested on Dev. Copy the doorway (not a script) to published places. |
 | Announcements on live | ConfigService `Announcements` missing → empty table, no crash. `GetAnnouncements` inits `{}`. Add the config key on Alpha to show What’s New. |
+| Collect wrong-tool feedback | Prompt `ObjectText` = `Requires <tool>`. Local deny on prompt + part (highlight, tool-icon billboard, hold cancel). No `TOOL_REQUIRED` HUD. `HARVEST_DENIED` only. Playtested on Dev (axe node with shovel equipped; bare-hands collect still works). Copy `CustomProximityPrompts` + `CollectHarvestClient` + `MaterialReplenishModule` to published places. |
 
 ---
 

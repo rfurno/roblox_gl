@@ -1,7 +1,7 @@
 # Gachamon Legends — Code review
 
-Date: 2026-08-30  
-Prior pass: 2026-08-26 / 2026-08-27 / 2026-08-28 / 2026-08-29.  
+Date: 2026-09-01  
+Prior pass: 2026-08-26 / 2026-08-27 / 2026-08-28 / 2026-08-29 / 2026-08-30.  
 Scope: Studio DataModel on **Gachamon Legends (Development)** (`136894937108297`).  
 Method: re-read live gameplay scripts, Destinations tree, hub gates, ScreenGuis, and disabled folders. Confirmed no Rojo; Studio remains source of truth.
 
@@ -12,6 +12,8 @@ Method: re-read live gameplay scripts, Destinations tree, hub gates, ScreenGuis,
 The live loop is still in decent shape: ProfileStore boot, `TryCollect`, sell-all, Willow gear, and teleport through `TeleportModule`. Do **not** add Rojo, Knit, or a client app module.
 
 The place is still carrying Studio-only weight: bake pipeline, ~27k workspace-root room templates, `Avo's Workspace`, and test GUIs. `DUNGEON8`, `BagGUITEST`, and `Old Map` are gone. After archive, remaining bugs are small and local.
+
+2026-09-01: collect prompts show `Requires <tool>`; wrong-tool deny is local (prompt + part), not the `TOOL_REQUIRED` HUD. `CollectHarvestClient` under `CustomProximityPrompts`. Do not mutate shared prompt properties per player.
 
 2026-08-30: `DungeonMaterializerv3` Command Bar locals; Savannah 4-door bake; in-maze entry/exit; `ToolModule` cleanup; blacksmith repair always returns Damage; Coconana `4_3`↔`3_3` south door; announcements tolerate missing ConfigService key.
 
@@ -111,6 +113,7 @@ Either make Description match the folder, or stop showing “Level N” and show
 | Blacksmith `remainingDamage > 0` on nil | Repair remote returns number; UI nil-safe. Playtested. |
 | Live `AnnouncementModule` iterate nil | Missing ConfigService `Announcements` → `{}` + warn. |
 | Coconana `4_3` north no landing | `Room_3_3` south doorway added on Dev. |
+| Wrong-tool collect was a HUD toast | Prompt `ObjectText` + local deny (hold cancel, highlight, billboard). `TryCollect` still authoritative; `HARVEST_DENIED` only. `TOOL_BROKEN` HUD kept. |
 
 ---
 
@@ -121,7 +124,7 @@ Either make Description match the folder, or stop showing “Level N” and show
 - `DestinationConfig.KEYS` enable list (`HOME`, `DUNGEON10`, `DUNGEON11`, `DUNGEON5x5`)
 - `TeleportModule` owns PivotTo + one loading GUI + `SetLocation`; unstick on HOME→entry
 - Hub enter: `Destinations.<KEY>.DungeonEntryDoorway` CFramed onto survey-trip gates (Buzzing Plains playtested)
-- `TryCollect` + KEYS-only replenish
+- `TryCollect` + KEYS-only replenish; collect prompt shows required tool; local deny if equipped tool cannot harvest
 - `DeductCoins` / `SellAll` stack pricing / shop `GetPlayerData` + `GetToolInfo`
 - HUD LocalScripts on `StarterPlayerScripts`; HUD ScreenGuis `ResetOnSpawn = false`
 - Door debounce via `task.delay`
