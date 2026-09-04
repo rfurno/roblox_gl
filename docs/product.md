@@ -1,6 +1,6 @@
 # Gachamon Legends — Product
 
-Last updated: 2026-09-01  
+Last updated: 2026-09-03  
 Place under review: **Gachamon Legends (Development)** (`136894937108297`)
 
 This document describes what the game is, who it is for, and what a session looks like. Implementation lives in Roblox Studio, not in this git repo.
@@ -13,7 +13,7 @@ Gachamon Legends is a gathering / expedition game on Roblox. Players live in a h
 
 The fantasy is field work: botanica, ores, fossils, and a traveling merchant (Benji) plus a blacksmith. A codex tracks what you have discovered. Tools wear out and can be bought, equipped, and repaired.
 
-It is not a combat RPG. Damage exists as environmental hazards in dungeons (thorns, fire, lava, and similar tags). There is no live player-level / XP loop in the current data template (that code is commented out).
+It is not a combat RPG. Damage exists as environmental hazards in dungeons (thorns, fire, lava, and similar tags). There is no player-level / XP loop.
 
 ---
 
@@ -23,7 +23,7 @@ It is not a combat RPG. Damage exists as environmental hazards in dungeons (thor
 |---|---|---|
 | Development (this instance) | `136894937108297` | `GLPlayerProfileDevelopment` |
 | Testers | `72816619326760` | `GLPlayerProfileTesters` |
-| Live | `115297023432140` | `GLPlayerProfileProd` |
+| Live | `115297023432140` | `GLPlayerProfileProd` | Published 2026-09-03 (place version 2305): L2 sites + Plains L1 door patch |
 
 Walk speed is 20 in published servers and 28 in Studio.
 
@@ -52,7 +52,7 @@ Three harvest types, driven by `ItemConfig` + CollectionService tags:
 | Type | Typical tool | Examples |
 |---|---|---|
 | Foraging | Axe or bare hands | Oakren Wood, olives, bushes |
-| Mining | Pickaxe | Ores (e.g. Copperpine) |
+| Mining | Pickaxe | Ores (e.g. Copper Ore) |
 | Excavating | Shovel | Chests, fossils |
 
 Rarity weights: Common 60%, Rare 30%, Epic 9.9%, Legendary 0.1%. Nodes restock on a 120s interval in **enabled** site folders only. Collect is server `TryCollect` (node + range + **equipped** tool). Collect time and required tool come from item config.
@@ -70,7 +70,7 @@ The collect prompt’s object line shows the tool when one is required (`Require
 
 ## Tools
 
-Five tiers exist in config (Novice → Legendary) with durability and speed. Only **tier 1 Willow** tools are actually defined and stored:
+Five named tiers exist in config (Novice → Legendary), including unused `Durability` / `SpeedFactor`. Unused types (Sickle, Knife, Hammer) are also in `TOOL_TYPES`. Only **tier 1 Willow** tools are defined and stored:
 
 | Id | Name | Price |
 |---|---|---|
@@ -78,27 +78,29 @@ Five tiers exist in config (Novice → Legendary) with durability and speed. Onl
 | `AXE_1` | Willow Axe | 100 |
 | `SHOVEL_1` | Willow Shovel | 10 |
 
-Tools live in `ServerStorage.Tools` and are cloned onto the player. Damage is 0–100 (100 = broken). A broken tool unequips and fires the `TOOL_BROKEN` HUD toast. Wrong-tool collect feedback is on the prompt and the node, not `TOOL_REQUIRED`.
+3D models live in `ServerStorage.Tools`. Gear is a data map (tool id, equipped, Damage 0–100). Equip is UI-only — nothing clones a Tool into the character yet. A broken tool unequips and fires the `TOOL_BROKEN` HUD toast. Wrong-tool collect feedback is on the prompt and the node.
 
 ---
 
 ## Sites (enabled)
 
-Config enable list is `DestinationConfig.KEYS`. Journeys shown in Depart:
+Config enable list is `DestinationConfig.KEYS`. Depart sorts by `DisplayOrder`:
 
-| Key | Name | UI label | Difficulty | Folder |
-|---|---|---|---|---|
-| `DUNGEON11` | Coconana Oasis | Level 1 | Easy | `Workspace.Destinations.DUNGEON11` |
-| `DUNGEON5x5` | Buzzing Plains | Level 3 | Easy | `Workspace.Destinations.DUNGEON5x5` |
-| `DUNGEON10` | Blackthorn Mountain | Level 10 | Moderate | `Workspace.Destinations.DUNGEON10` |
+| Order | Key | Name | UI label | Difficulty | Folder | Unlock |
+|---|---|---|---|---|---|---|
+| 1 | `DUNGEON11` | Coconana Oasis | Level 1 | Easy | `Workspace.Destinations.DUNGEON11` | Always |
+| 2 | `DUNGEON11L2` | Coconana Oasis Lvl.2 | Level 2 | Easy | `Workspace.Destinations.DUNGEON11L2` | Visit every Coconana L1 room |
+| 3 | `DUNGEON5x5` | Buzzing Plains | Level 1 | Easy | `Workspace.Destinations.DUNGEON5x5` | Always |
+| 4 | `DUNGEON5x5L2` | Buzzing Plains Lvl.2 | Level 2 | Easy | `Workspace.Destinations.DUNGEON5x5L2` | Visit every Plains L1 room |
+| 5 | `DUNGEON10` | Blackthorn Mountain | Level 10 | Moderate | `Workspace.Destinations.DUNGEON10` | Always |
 
-`HOME` is the hub, not a maze.
+`HOME` is the hub, not a maze. Coconana L2 walk-in is `CoconanaOasisEntranceL2`. Buzzing Plains L2 walk-in is `BuzzingPlainsEntranceL2` (Savannah art). Each L2 stays locked until every room of that site’s L1 has been visited.
 
-Folder id, marketing name, and “Level N” label do **not** line up (site 11 is “Level 1”; site `DUNGEON5x5` is “Level 3”). See [backlog](backlog.md).
+Folder id and “Level N” label still do not line up for Blackthorn (`DUNGEON10` / “Level 10”). See [backlog](backlog.md).
 
-Live dungeon generation is disabled; mazes are pre-placed rooms. Studio bake (`DungeonMaterializerv3`) is Command Bar only: `CoconanaOasisTemplate` is a 15-layout set, `BuzzingSavannahTemplate` is a single all-four-doors room (unused doorways hidden at bake).
+Live dungeon generation is disabled; mazes are pre-placed rooms. Studio bake (`DungeonMaterializerv3`) is Command Bar only: `CoconanaOasisTemplate` is a 15-layout set, `BuzzingSavannahTemplate` is a single all-four-doors room (unused doorways hidden at bake). Bake sources are `ServerStorage.SiteModelTemplates`.
 
-The Destinations button in Depart is **Studio-only** (test skip). Testers/live enter a site by walking the hub `DungeonEntryDoorway` volume. Survey-trip models are art around those volumes. Coconana, Buzzing Plains, and Blackthorn walk-ins are on. Buzzing Plains hub door lands on `Room_5_3` south (`IsEntry`). Coconana `Room_4_3` north lands on `Room_3_3` south.
+The Destinations button in Depart is **Studio-only** (test skip). Testers/live enter a site by walking the hub `DungeonEntryDoorway` volume. Coconana L1/L2, Buzzing Plains L1/L2, and Blackthorn walk-ins are on. Buzzing Plains L1 lands on `Room_5_3` south. Plains L2 is 16 rooms (4×4 `BuzzingSavannahTemplate`), hub `ToRoom` `4_2` S on `BuzzingPlainsEntranceL2`. Coconana L2 is 16 rooms (4×4 bake).
 
 What’s New is ConfigService `Announcements` on **each place**. If that key is missing, the game skips the board instead of erroring.
 
@@ -112,6 +114,7 @@ ProfileStore session per user. Template:
 - `FtueStage`
 - `Inventory` (item id → count)
 - `KnownItems` / `RecentItems` (codex)
+- `ExploredRooms` (per-site room ids visited; unlocks that site’s L2)
 - `Announcements`
 - `RedeemCodes` (empty table; flag off, no UI)
 - `MusicMuted` (default false; settings toggle)
@@ -135,9 +138,10 @@ ProfileStore session per user. Template:
 | `CoinIndicator` | Coin HUD |
 | `AnnouncementsGui` | What’s New |
 | `LoadingScreen` | Maze load overlay (HOME ↔ site; trip name on the GUI) |
-| `ScreenOverlayNEW` | In-dungeon HUD (health, compass, alerts, quick slots) — present, not fully wired in this review |
+| `Testing` | Leftover test UI (Enabled=false). Confirm before deleting. |
+| `ScreenOverlayNEW` | Unwired in-dungeon HUD (Enabled=false). Confirm before deleting. |
 
-Leftover test GUI: `Testing` (Enabled=false). `ScreenOverlayNEW` is also Enabled=false.
+HUD ScreenGuis use `ResetOnSpawn = false`. **Never remove `Workspace.Avo's Workspace`.** Confirm before deleting any model or GUI.
 
 ---
 
@@ -148,7 +152,7 @@ Leftover test GUI: `Testing` (Enabled=false). `ScreenOverlayNEW` is also Enabled
 - **Benji** + caravan (buyer / sell-all)
 - **Traveling Blacksmith** + anvil
 - NPCs including Orashi, Karuzen, FeedbackLevel1
-- Survey-trip entrance models (Coconana Oasis, Buzzing Plains, Blackthorn Mountain, plus unused Chimstone / Willoria / Savannah)
+- Survey-trip entrance models: Coconana Oasis, Coconana Oasis L2, Buzzing Plains, Buzzing Plains L2, Blackthorn Mountain, plus unused Willoria art and a second Blackthorn model
 - Water, lights, barriers, foliage
 
 `Workspace.FTUE` holds tutorial props (`Forage1`, `JourneyEntry`, `FeedbackSpawn`).
@@ -159,7 +163,9 @@ Leftover test GUI: `Testing` (Enabled=false). `ScreenOverlayNEW` is also Enabled
 
 - Procedural dungeon generation at runtime (scripts exist, all Disabled)
 - Player levels and XP
-- Badge awards (referenced, commented)
+- Badge awards
 - Redeem codes (template field + APIs; flag off; **no UI**)
 - Additional tool tiers beyond Willow
-- Enabled sites other than Coconana (`DUNGEON11`), Buzzing Plains (`DUNGEON5x5`), and Blackthorn (`DUNGEON10`)
+- 3D tool-in-hand (equip is gear UI only)
+- In-dungeon HUD (`ScreenOverlayNEW` present, Enabled=false, unwired — confirm before deleting)
+- Enabled sites other than Coconana L1/L2, Buzzing Plains L1/L2, and Blackthorn (`DUNGEON10`)
