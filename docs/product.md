@@ -1,6 +1,6 @@
 # Gachamon Legends — Product
 
-Last updated: 2026-09-03  
+Last updated: 2026-09-03 (universe IDs + Open Cloud pointer)  
 Place under review: **Gachamon Legends (Development)** (`136894937108297`)
 
 This document describes what the game is, who it is for, and what a session looks like. Implementation lives in Roblox Studio, not in this git repo.
@@ -19,11 +19,13 @@ It is not a combat RPG. Damage exists as environmental hazards in dungeons (thor
 
 ## Places
 
-| Place | Place ID | Profile store |
-|---|---|---|
-| Development (this instance) | `136894937108297` | `GLPlayerProfileDevelopment` |
-| Testers | `72816619326760` | `GLPlayerProfileTesters` |
-| Live | `115297023432140` | `GLPlayerProfileProd` | Published 2026-09-03 (place version 2305): L2 sites + Plains L1 door patch |
+| Place | Place ID | Universe ID | Profile store |
+|---|---|---|---|
+| Development (this instance) | `136894937108297` | `9865188944` | `GLPlayerProfileDevelopment` |
+| Testers | `72816619326760` | `8925744545` | `GLPlayerProfileTesters` |
+| Live / Alpha | `115297023432140` | `8330572807` | `GLPlayerProfileProd` |
+
+Live published 2026-09-03 (place version 2305): L2 sites + Plains L1 door patch. Production Output is not in Studio; use Open Cloud with `ROBLOX_API_KEY` — see [architecture](architecture.md#live-observability-open-cloud).
 
 Walk speed is 20 in published servers and 28 in Studio.
 

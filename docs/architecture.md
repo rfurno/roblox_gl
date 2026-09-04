@@ -1,7 +1,7 @@
 # Gachamon Legends — Architecture
 
-Last updated: 2026-09-03  
-Source of truth: Roblox Studio place **Gachamon Legends (Development)**. Live/Alpha is `115297023432140`. This git repo holds documentation only; there is no Rojo/Knit tree.
+Last updated: 2026-09-03 (Open Cloud live-log IDs added)  
+Source of truth: Roblox Studio place **Gachamon Legends (Development)**. Live/Alpha is `115297023432140` (universe `8330572807`). This git repo holds documentation only; there is no Rojo/Knit tree.
 
 ---
 
@@ -327,3 +327,53 @@ Not scripts:
 
 - ConfigService `Announcements` — add on the published place or What’s New stays empty
 - DataModel doors (e.g. Coconana `Room_3_3` south) — copy the instance or the destination folder, not a script
+
+---
+
+## Live observability (Open Cloud)
+
+Studio MCP talks only to the open Studio instance (usually Development, Edit mode). It cannot read published-server Output. The game itself has no outbound HTTP APIs (`HttpService` is disabled; ProfileStore uses it only for GUIDs).
+
+FTUE steps go to Creator Hub via `AnalyticsService:LogOnboardingFunnelStepEvent` (`ServerScriptService.Analytics.FtueAnalytics`). That is not the same as server Output.
+
+### Auth
+
+Create a key at [Creator Dashboard → Credentials](https://create.roblox.com/dashboard/credentials). Export it in the shell **before** starting Grok so the agent inherits it:
+
+```bash
+export ROBLOX_API_KEY='…'
+```
+
+Never commit the key, put it in this repo, or paste it into chat. An export in an already-running Grok session is invisible until Grok is restarted from that shell.
+
+| Scope | What it unlocks |
+|---|---|
+| `universe:read` | List game servers, read per-server Output |
+| `universe.analytics:read` | Time-series metrics (CCU, FTUE funnel) |
+
+Header: `x-api-key: $ROBLOX_API_KEY`. Base: `https://apis.roblox.com`.
+
+### IDs
+
+| Place | Place ID | Universe ID |
+|---|---|---|
+| Development | `136894937108297` | `9865188944` |
+| Testers | `72816619326760` | `8925744545` |
+| Live / Alpha | `115297023432140` | `8330572807` |
+
+Live last published 2026-09-03 as place version **2305**. Confirm the current version before listing servers (`place-version-history-api` below).
+
+### Agent workflow
+
+When asked to check live logs or servers:
+
+1. Confirm `$ROBLOX_API_KEY` is set (`printenv ROBLOX_API_KEY` — do not print the value).
+2. Public snapshot (no key): `GET https://games.roblox.com/v1/games?universeIds=8330572807` and `GET https://games.roblox.com/v1/games/115297023432140/servers/Public`.
+3. Current place version: `GET https://apis.roblox.com/place-version-history-api/v1/115297023432140/history`
+4. Servers: `GET https://apis.roblox.com/server-management/v1/universes/8330572807/places/115297023432140/versions/{version}/game-servers`
+5. Logs for a `jobId`: `GET https://apis.roblox.com/server-management/v1/universes/8330572807/places/115297023432140/versions/{version}/game-servers/{jobId}/logs`
+6. Optional metrics: `POST https://apis.roblox.com/analytics-query-api/v1/universes/8330572807/metrics` with `universe.analytics:read`.
+
+If the key is missing, those Open Cloud routes return **403** `Invalid authentication data provided`. Empty public `servers` + `playing: 0` means there is no live job to tail.
+
+Related: `GET .../game-servers:filter-options`, `GET .../universes/{id}/restarts`, `GET .../cloud/v2/universes/{id}`.
