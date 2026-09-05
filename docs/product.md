@@ -1,6 +1,6 @@
 # Gachamon Legends — Product
 
-Last updated: 2026-09-03 (universe IDs + Open Cloud pointer)  
+Last updated: 2026-09-05 (FTUE why-copy on Live 2315)  
 Place under review: **Gachamon Legends (Development)** (`136894937108297`)
 
 This document describes what the game is, who it is for, and what a session looks like. Implementation lives in Roblox Studio, not in this git repo.
@@ -25,7 +25,7 @@ It is not a combat RPG. Damage exists as environmental hazards in dungeons (thor
 | Testers | `72816619326760` | `8925744545` | `GLPlayerProfileTesters` |
 | Live / Alpha | `115297023432140` | `8330572807` | `GLPlayerProfileProd` |
 
-Live published 2026-09-03 (place version 2305): L2 sites + Plains L1 door patch. Production Output is not in Studio; use Open Cloud with `ROBLOX_API_KEY` — see [architecture](architecture.md#live-observability-open-cloud).
+Live last seen 2026-09-05 as place version **2315** (FTUE why-copy). Production Output is not in Studio; use Open Cloud with `ROBLOX_API_KEY` — see [architecture](architecture.md#live-observability-open-cloud).
 
 Walk speed is 20 in published servers and 28 in Studio.
 
@@ -43,7 +43,21 @@ Walk speed is 20 in published servers and 28 in Studio.
 
 New-player FTUE is linear:
 
-`Forage` → `Sell` → `Journey` → `Feedback` → `Complete`
+`Forage` → `Sell` → `Journey` → `Complete`
+
+(`Feedback` still exists on the profile enum and hub NPC; it is **not** a funnel step. Journey now goes straight to Complete. The NPC can still open Roblox’s feedback sheet if someone walks up to it.)
+
+Beam + bouncing arrow on the current target. A **non-obstructive** banner under `MainGui` (not What’s New, not a modal, not a new ScreenGui) explains the loop. Movement stays free. Forage why+Do show from second 0; intro is a one-shot extra line on the same banner.
+
+| When | Why | Do |
+|---|---|---|
+| Intro (session-local, first `Forage` only; no new stage) | Collect, sell to Benji, then survey the wilds. | — Dismiss: X, ~8s, or 8+ studs closer to `Forage1` |
+| `Forage` | Samples in your bag are what you sell. | Pick the glowing plant |
+| `Sell` | Coins buy and repair tools. | Sell your samples to Benji |
+| `Journey` | Hub plants are common. Trips have ores and fossils. | Walk into the marked gate |
+| `Complete` / `Feedback` | Hide the banner. | — |
+
+≤ ~12 words per line. Skipping intro still shows the per-step why. Hide while `LoadingScreen` is up. See [architecture](architecture.md#ftue). On Live **2315** (playtested in Live Studio). Existing `Complete` profiles stay hidden; reset must use `SetFtueStage` on `GLPlayerProfileProd`.
 
 ---
 
@@ -104,7 +118,7 @@ Live dungeon generation is disabled; mazes are pre-placed rooms. Studio bake (`D
 
 The Destinations button in Depart is **Studio-only** (test skip). Testers/live enter a site by walking the hub `DungeonEntryDoorway` volume. Coconana L1/L2, Buzzing Plains L1/L2, and Blackthorn walk-ins are on. Buzzing Plains L1 lands on `Room_5_3` south. Plains L2 is 16 rooms (4×4 `BuzzingSavannahTemplate`), hub `ToRoom` `4_2` S on `BuzzingPlainsEntranceL2`. Coconana L2 is 16 rooms (4×4 bake).
 
-What’s New is ConfigService `Announcements` on **each place**. If that key is missing, the game skips the board instead of erroring.
+What’s New is ConfigService `Announcements` on **each place**. If that key is missing, the game skips the board instead of erroring. Live currently has **no** announcement content; that is not a player bug. FTUE loop copy is a separate banner under `MainGui`, not this board.
 
 ---
 
@@ -130,7 +144,7 @@ ProfileStore session per user. Template:
 
 | Gui | Role |
 |---|---|
-| `MainGui` | Hub controls (bag, gear, store, blacksmith, codex, settings) |
+| `MainGui` | Hub controls (bag, gear, store, blacksmith, codex, settings). Runtime `FtueBanner` Frame is parented here (no extra ScreenGui). |
 | `BagGui` | Inventory |
 | `GearGui` | Equipped tools |
 | `StoreGui` | Tool shop |

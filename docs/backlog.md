@@ -1,17 +1,23 @@
 # Gachamon Legends — Backlog
 
-Last updated: 2026-09-03 (copied to Live/Alpha and published)  
+Last updated: 2026-09-05 (FTUE why-copy on Live 2315)  
 Studio DevLog also lives in [docs/devlog.md](devlog.md) (`ServerScriptService.Draft.DevLog` is still in the place).
 
 **Art rule:** never remove `Workspace.Avo's Workspace`. Confirm before removing any model or GUI.
 
 Priority: **P0** play-breaking or data-wrong · **P1** wrong UX / easy to regress · **P2** dead code / naming / leftover art.
 
-Status **Fixed (dev place)** means changed in Studio. **2026-09-03 Live/Alpha published** (place `115297023432140`, version 2305) with the L2 sites and Plains L1 door patch.
+Status **Fixed (dev place)** means changed in Studio. **2026-09-05 Live/Alpha** is place version **2315** (FTUE why-copy). **2026-09-03** published 2305 with the L2 sites and Plains L1 door patch.
 
 ---
 
-## Done this session (dev place, 2026-09-03)
+## Done this session (2026-09-05)
+
+**FTUE why-copy** on Live **2315**. Scripts only (`ReplicatedStorage.FTUE.FtueWhyCopy`, `FtueBanner`, `FtueManagerClient`). No Workspace models, no `ServerScriptService.FTUE` change. Playtested in Live Studio after `SetFtueStage(Forage)` on `GLPlayerProfileProd`. A Dev reset does not affect Live. Old public 2314 jobs keep serving until they shut down.
+
+---
+
+## Done earlier (dev place, 2026-09-03)
 
 **Coconana Oasis Lvl.2** (`DUNGEON11L2`): 16 connected rooms, L2 hub door, unlock after every `DUNGEON11` room.
 
@@ -112,7 +118,7 @@ Depart sorts by `DisplayOrder`. Coconana and Plains L1/L2 labels match (Level 1 
 2. Playtest Plains L1 side rooms `5_2` and `2_4`/`3_4` after the door patch.
 3. Playtest Plains L2: locked until all 13 L1 rooms are visited; then Savannah gate, entry/exit/Go Home.
 4. Drop or rewrite leftover “Level 10” Depart copy for Blackthorn.
-5. Keep `DungeonMaterializerv3` Disabled in published places. Add ConfigService `Announcements` on Alpha if What’s New should show.
+5. Keep `DungeonMaterializerv3` Disabled in published places. ConfigService `Announcements` on Live is optional hygiene (empty key silences warns). There is no What’s New content; do not treat that as a player bug.
 6. Clone `ServerStorage.Tools` onto the character on equip, or drop `ToolName` until that ships.
 
 Do not add Rojo. Do not re-enable dungeon generation at runtime.

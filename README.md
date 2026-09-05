@@ -26,7 +26,7 @@ Models and ScreenGuis are art. Treat them that way.
 |---|---|
 | [docs/product.md](docs/product.md) | What the game is, loop, sites, data, UI |
 | [docs/architecture.md](docs/architecture.md) | Services, remotes, teleport, collect, FTUE, Studio bake, Open Cloud live logs |
-| [docs/backlog.md](docs/backlog.md) | Working gaps (updated 2026-09-03) |
+| [docs/backlog.md](docs/backlog.md) | Working gaps (updated 2026-09-05; FTUE why-copy on Live 2315) |
 | [docs/code-review.md](docs/code-review.md) | Studio review 2026-09-03; L2 sites on Live (published) |
 | [docs/devlog.md](docs/devlog.md) | Copy of Studio `Draft.DevLog` |
 | [docs/ads-campaign-2026-09-04.md](docs/ads-campaign-2026-09-04.md) | Ads watch 2026-09-04 12:00–16:00 EDT: live logs, issues, fix plan (no game edits) |

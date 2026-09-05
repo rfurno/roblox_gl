@@ -4,6 +4,17 @@ Copy of `ServerScriptService.Draft.DevLog` (that script is still in the Developm
 
 ---
 
+2026-09-05
+
+- FTUE why-copy on Live **2315**. Scripts only: `ReplicatedStorage.FTUE.FtueWhyCopy`, `FtueBanner`, `FtueManagerClient`. No Workspace models, no new ScreenGui, no `ServerScriptService.FTUE` change.
+- Playtested in Live Studio after `SetFtueStage(Forage)` on `GLPlayerProfileProd`. A Dev profile reset does not apply. Old 2314 public servers keep the previous client until they shut down.
+
+2026-09-04
+
+- FTUE why-copy banner in Dev. Scripts only: `ReplicatedStorage.FTUE.FtueWhyCopy`, `FtueBanner`, `FtueManagerClient`. No Workspace models, no new ScreenGui.
+- Non-blocking Frame parented at runtime to `MainGui`. Forage why+Do from second 0; intro is session-local (X / ~8s / 8+ studs closer to `Forage1`). Hide on Complete, Feedback, LoadingScreen.
+- Playtested Dev: forage/sell/journey copy + beams; skip intro; iPhone landscape/portrait wrap.
+
 2026-08-30
 
 - Blacksmith RepairTool always returns remaining Damage (number); UI nil-safe. Playtested OK.

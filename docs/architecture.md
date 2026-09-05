@@ -1,6 +1,6 @@
 # Gachamon Legends — Architecture
 
-Last updated: 2026-09-03 (Open Cloud live-log IDs added)  
+Last updated: 2026-09-05 (FTUE why-copy on Live 2315)  
 Source of truth: Roblox Studio place **Gachamon Legends (Development)**. Live/Alpha is `115297023432140` (universe `8330572807`). This git repo holds documentation only; there is no Rojo/Knit tree.
 
 ---
@@ -152,7 +152,19 @@ Door debounce: `Touched` attribute, cleared after 0.5s via `task.delay`.
 
 ### FTUE
 
-Server `FtueManagerServer` runs one in-flight `HandleAsync` per player (cancel on leave / stage change). Client mirrors with beams / CTA. Forage / sell / journey wait on inventory and location signals. Stage changes log to Creator Hub via `FtueAnalytics`.
+Server `FtueManagerServer` runs one in-flight `HandleAsync` per player (cancel on leave / stage change). Client `FtueManagerClient` maps `FtueStage` → handlers:
+
+| Stage | Client hint today |
+|---|---|
+| `Forage` | Beam + CTA arrow on `Workspace.FTUE.Forage1` |
+| `Sell` | Beam + CTA on Benji |
+| `Journey` | Beam + CTA on `Workspace.FTUE.JourneyEntry`; server then sets `Complete` |
+| `Feedback` | Unused by the linear FTUE. Hub `FeedbackSpawn` prompt still exists (`SocialService:PromptFeedbackSubmissionAsync`). Not a funnel step. |
+| `Complete` | No handler |
+
+Forage / sell / journey wait on inventory and location signals. Stage changes log to Creator Hub via `FtueAnalytics` (**Forage=1, Sell=2, Journey=3, Complete=4**). `Feedback` is not logged.
+
+**Why-copy (Live 2315):** client-only. `FtueManagerClient.onFtueStageUpdated` calls `FtueBanner.ShowStage`. Copy lives in `ReplicatedStorage.FTUE.FtueWhyCopy`. The banner is a Frame parented at runtime to `PlayerGui.MainGui` — **no new ScreenGui**, no `ServerScriptService.FTUE` change. Forage why+Do from second 0; intro is a session-local extra line (X / ~8s / 8+ studs closer to `Forage1`). Hide on `Complete`, `Feedback`, and while `LoadingScreen.Enabled`. Keep beams/CTA. Strings: [product](product.md#core-loop). Playtested in Live Studio after `SetFtueStage(Forage)` on the prod profile.
 
 ### Dungeons
 
@@ -309,8 +321,11 @@ in-maze IsEntry door
 
 **2026-09-03:** models, scripts, and UI copied to Live/Alpha (`115297023432140`) and published (place version 2305). Live Destinations include `DUNGEON11`, `DUNGEON11L2` (16 rooms), `DUNGEON5x5` (13 rooms, doors patched), `DUNGEON5x5L2` (16 rooms), `DUNGEON10`. Hub art on live: `CoconanaOasisEntranceL2`, `BuzzingPlainsEntranceL2`. `LevelGeneration` scripts are present and **Disabled**. `Avo's Workspace` is not on live.
 
+**2026-09-05:** FTUE why-copy scripts copied to Live and published (**2315**). Client-only: `ReplicatedStorage.FTUE.FtueWhyCopy`, `FtueBanner`, `FtueManagerClient`. No Workspace models, no new ScreenGui, no `ServerScriptService.FTUE` change. Playtested in Live Studio.
+
 Scripts are the same tree. Gameplay to copy after later Dev edits:
 
+- `ReplicatedStorage.FTUE.FtueWhyCopy`, `FtueBanner`, `FtueManagerClient` (Live 2315)
 - `Teleport.TeleportModule`, `Teleport.SiteTeleportController`, `Teleport.TeleportHandler`
 - `StarterPlayerScripts.CameraTransitionControl`, `DepartGuiController`, `SiteLockPromptClient`
 - `ReplicatedStorage.Config.DestinationConfigModule`, `ToolConfig`, `ClientConfiguration`
@@ -361,7 +376,7 @@ Header: `x-api-key: $ROBLOX_API_KEY`. Base: `https://apis.roblox.com`.
 | Testers | `72816619326760` | `8925744545` |
 | Live / Alpha | `115297023432140` | `8330572807` |
 
-Live last published 2026-09-03 as place version **2305**. Confirm the current version before listing servers (`place-version-history-api` below).
+Live last seen 2026-09-05 as place version **2315** (`filter-options`; 2314 public jobs can keep serving until they shut down). Confirm current version with `game-servers:filter-options` — `place-version-history-api` 403s on the `universe:read` key.
 
 ### Agent workflow
 

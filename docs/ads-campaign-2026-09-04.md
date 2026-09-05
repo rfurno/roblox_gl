@@ -86,14 +86,16 @@ Collected before the campaign. Hourly checks should add rows, not implement.
 
 | ID | Sev | Status | Symptom | Likely cause | Fix plan (do not do now) |
 |---|---|---|---|---|---|
-| A1 | P1 | Open, **still on 2314 at 16:00 EDT** (every public 2314 boot in the window) | What’s New is empty for every live join. Server Output: `ConfigService: Config value not found for key "Announcements"` and `What's New will stay empty until the key exists`. | ConfigService values are **per place**. Script copy / place publish does not copy `Announcements`. `AnnouncementModule` already falls back to `{}` and warns (see architecture). | In **Live/Alpha Studio**, add ConfigService key `Announcements` with the same table as Development. Do not treat a script copy or a republish as enough. Confirm by joining Live: What’s New has copy, and new job logs no longer warn. Dev place is the source of the table. |
-| A2 | P2 | Open | Docs still say Live last published as version **2305**. Live at 13:00 EDT is **2314** (2313 also ran briefly). | Docs lag publishes. 2313/2314 landed ~12:14 EDT during the campaign window. | After the campaign, set architecture / product / backlog “last published” to the version `filter-options` reports. Keep using filter-options; do not rely on place-version-history with this key. |
+| A1 | P3 | Not a player bug. Key missing on Live; **no announcement content exists**, so the board staying hidden is correct. Warns still fire on every 2314 boot (including 22:13). | Server Output: `ConfigService: Config value not found for key "Announcements"` then the module warn. Players do not see a broken What’s New — they see nothing, which matches “there is none.” | ConfigService key absent on Live. `AnnouncementModule` uses `{}` and skips. | Optional hygiene only: add an **empty** `Announcements` table on Live so boots stop warning. Do **not** treat this as a player-facing fix or as a prerequisite for ads work. |
+| A2 | P2 | Done in docs 2026-09-04 | Docs still said Live last published as **2305**. Live is **2314**. | Docs lagged the 12:14 EDT publish. | product / architecture / backlog now say 2314. Keep using `filter-options`. |
 | A3 | P2 | Open | `GET .../place-version-history-api/v1/115297023432140/history` → **403** `Scope not authorized`. | API key has `universe:read` (servers + logs) but not the version-history scope. | Either add the missing credential scope in Creator Dashboard, or drop step 3 of the agent workflow and use `game-servers:filter-options` + `cloud/v2/.../places/{id}` `updateTime`. |
 | A4 | P2 | Open | `POST analytics-query-api/.../metrics` → **400** (`request` required; `granularity` not a `MetricGranularity`). Auth did not 403. | Request body does not match the public schema (`metric` / `granularity` enum / wrapping `request`). | Look up the analytics-query-api schema, send a valid body, then FTUE/CCU can be pulled during a later watch. Not blocking Output tails. |
 | A5 | P1 | Watch — **no new crash in the ads window** | Four **crashed** jobs on 2305, all 2026-08-31 (~9–31 min uptime). Open Cloud logs have no stack — only A1 warns. | Unknown historically. 2314 public jobs in-window (82 min and 93 min) both `shut_down` cleanly. | Historical Aug 31: check Creator Hub crash reports if any. Do not republish on speculation. |
 | A6 | P3 | Noted | One **504 Gateway Time-out** on 2308 logs; retry 200 with the same two lines. | Open Cloud flakiness. | Retry logs with a 60s curl timeout. A 504 is not a game bug unless it persists for the hour. |
-| A7 | P2 | Watch — **did not fire**. Peak occ 1/10. | Live `serverSize` is **10**. Ads can fill a server and queue. | Game Settings max players. | Leave at 10 unless CCU grows. Peak playing this window was 1. |
-| A8 | P3 | Watch | Output never shows info/print — only severity 2. Ads bugs that `print` may be invisible here. | Log API may filter, or production code rarely warns. | If players report a bug with no matching Output, add targeted `warn` around that path (FTUE, teleport, collect) **after** the campaign. Do not spam `print` on Live. |
+| A7 | P2 | Watch — peak occ **3/10** at 20:50 (was 1/10 in the 12–16 window). | Live `serverSize` is **10**. | Game Settings max players. | Still headroom. Revisit only if occupancy sticks at 10 with a queue. |
+| A8 | P3 | Watch, confirmed evening | Open Cloud Output is warn+ only. Evening 2314 jobs with logs still only A1. Three short jobs had **n=0** (`86157d1f` 14s, `178865c8` 19s, `1a1bc078` 5m fps=0). | API filters info/`print`, or those jobs died before the first warn flushed. | Do not spam `print`. After A1, add a few `warn`s on FTUE stage enter/exit, first collect, first sell, teleport fail — so the next log pull can explain A9 bounces. |
+| A9 | P1 | **Done on Live 2315** (playtested in Live Studio 2026-09-05) | After 16:00, **21 new public 2314 jobs** (19 by 20:50 + 2 more). Many last **14s–2 min**. Latest: `0a1f1030` 7m, `eea906ff` **1m 02s**, both A1 only. Visits 66→**123**, favorites 3→**8**. Peak occ 3/10. No crash. | FTUE mechanics work; they never explain **why** collect / sell / journey. Ads players can leave before the loop is obvious. Not a What’s New bug. | Banner + why-copy on Live 2315 ([product](product.md#core-loop), [architecture](architecture.md#ftue)). Client scripts only. Existing Complete profiles stay hidden until `SetFtueStage(Forage)` on prod. Optional later: A8 `warn`s and A4 funnel. Do not raise max players. |
+| A10 | P3 | Still one-off at 22:13 | Job `1a1bc078` (19:24 EDT, 5m 02s) shut down with **fps=0**, mem ~786MB (others ~850–890MB). Not `crashed`. n=0 logs. New 22:13 jobs ran at fps 60. | Possible hitch or a job that never rendered; still a clean `shut_down`. | No repeat on the two newest jobs. Keep watching; ignore unless fps=0 returns with a stack. |
 
 Already handled in code, not a live crash: missing `Announcements` no longer iterates nil (`AnnouncementModule` uses `{}`). The remaining gap is empty What’s New, not a boot exception.
 
@@ -257,6 +259,97 @@ That session ended cleanly (~10 min before this snapshot). No live job at 16:00.
 | Servers full | never (max occ 1/10) |
 
 Do not implement from this watch. Highest-priority leftover: **A1** add ConfigService `Announcements` on Live/Alpha, then publish.
+
+---
+
+## Post-window pull — 2026-09-04 20:50 EDT
+
+Same Open Cloud path as the hourly watch. Live still **2314** (no newer place version). Engine `0.737.0.7371583`.
+
+| Field | 16:00 EDT | 20:50 EDT |
+|---|---|---|
+| Playing (games API) | 0 | 1 (stale vs occupancy) |
+| Public server occupancy | 0 | **3 / 10** |
+| Visits | 66 | **117** (+51) |
+| Favorites | 3 | **7** (+4) |
+| Public servers | 0 | 1 |
+| Active jobs | none | 1 |
+| New crashes | none | none |
+| Place `updateTime` | 12:14 EDT | unchanged |
+
+**Active**
+
+| jobId | Ver | Created EDT | Uptime | Occ / max | fps / ping | Logs |
+|---|---|---|---|---|---|---|
+| `f89cef52-b3a1-4da0-a248-57275c449120` | 2314 | 20:29 | 21m | **3 / 10** | 60 / 137 | same A1 warns |
+
+**New 2314 public jobs since 16:00** (19 + the still-up one). All `shut_down` except `f89cef52`. Times EDT:
+
+| jobId prefix | Created | Uptime | Notes |
+|---|---|---|---|
+| `01e01e28` | 17:08 | 49m 22s | longest evening session; A1 |
+| `178865c8` | 18:08 | 19s | n=0 logs |
+| `65951a0a` | 19:04 | 45s | A1 |
+| `075c72c2` | 19:07 | 36s | A1 |
+| `86157d1f` | 19:23 | 14s | n=0 |
+| `147c3320` | 19:24 | 21s | A1 |
+| `1a1bc078` | 19:24 | 5m 02s | **fps=0**, n=0 (A10) |
+| `789bc638` | 19:26 | 42s | A1 |
+| `c37b9e11` | 19:34 | 1m 31s | A1 |
+| `54ee7f22` | 19:36 | 4m 45s | A1 |
+| `1a56d8cc` | 19:43 | 2m 28s | A1 |
+| `9e00d750` | 19:55 | 2m 36s | A1 |
+| `99b18da1` | 19:59 | 1m 11s | A1 |
+| `d0247449` | 20:01 | 10m 15s | A1 |
+| `678a19fd` | 20:12 | 2m 12s | A1 |
+| `bbef6859` | 20:17 | 26s | A1 |
+| `e9b3c6d7` | 20:18 | 4m 47s | A1 |
+| `a82cf843` | 20:23 | 28s | A1 |
+| `f89cef52` | 20:29 | still up | occ 3, A1 |
+
+No 2315+ jobs. Historical 2305 crashes unchanged.
+
+---
+
+## Post-window pull — 2026-09-04 22:13 EDT
+
+Same Open Cloud path. Live still **2314**. No active jobs.
+
+| Field | 20:50 EDT | 22:13 EDT |
+|---|---|---|
+| Playing (games API) | 1 | **0** |
+| Public occupancy | 3 / 10 | **0** |
+| Visits | 117 | **123** (+6) |
+| Favorites | 7 | **8** (+1) |
+| Public servers | 1 | 0 |
+| New crashes | none | none |
+| New Output | A1 only | A1 only |
+
+`f89cef52` (the 3-player server) shut down cleanly at **20:59 EDT** after **29m 50s**.
+
+**New 2314 jobs since 20:50**
+
+| jobId prefix | Created EDT | Uptime | Status | Logs |
+|---|---|---|---|---|
+| `0a1f1030` | 21:59 | 7m 08s | shut_down 22:06 | same A1 warns |
+| `eea906ff` | 22:10 | **1m 02s** | shut_down 22:11 | same A1 warns |
+
+Fix order unchanged: A1 first, then A9 playtest / FTUE warns. A10 did not repeat (both new jobs fps 60).
+
+---
+
+## Recommended fix order (do not implement in this pass)
+
+A1 is **not** a player-facing bug (no What’s New content by design). Do not block other work on it.
+
+1. **A9 — FTUE why-copy** (P1). **Done on Live 2315** (banner + copy; playtested in Live Studio). Plan in [product](product.md#core-loop).
+2. **A8 — a few `warn`s on FTUE / collect / sell / teleport fail** so the next log pull can explain remaining bounce. Optional: publish the Dev shop-billboard disable (`ShopTitle.SellSamplesBillboard`) to Live if 2314 still has the floating shop icon (Live `updateTime` never moved after 12:14 EDT).
+3. **A2 — docs** (done 2026-09-05: product / architecture / backlog say 2315).
+4. **A4 — analytics query body** so FTUE funnel can explain A9 (P2).
+5. **A1 hygiene** — empty `Announcements` key on Live to silence warns. Not required for players.
+6. **A3, A6, A10**; **A7** leave `serverSize` 10.
+
+Art rule still applies to any later Studio work: never remove `Workspace.Avo's Workspace`; confirm before deleting models/GUIs.
 
 ---
 
